@@ -151,13 +151,33 @@ export function createStandardLayout(React, {styles, targetStyles, context, Layo
             Container ? element(Container, {locale: props.locale}, layout) : layout);
     }
 
-    function EdgeDrawer({edge, label, pinned = false, onOpenChange, portalContent = false, children}) {
+    function EdgeDrawer({edge, label, pinned = false, onOpenChange, portalContent = false, holdOpenSelector, children}) {
         const [hovered, setHovered] = useState(false);
         const [engaged, setEngaged] = useState(false);
+        const [heldOpen, setHeldOpen] = useState(false);
         const drawer = useRef(null);
         const trigger = useRef(null);
         const panel = useRef(null);
-        const open = pinned || hovered || engaged;
+        const open = pinned || hovered || engaged || heldOpen;
+
+        useLayoutEffect(() => {
+            if (!holdOpenSelector) return;
+            const node = panel.current as HTMLElement;
+            const view = node.ownerDocument.defaultView;
+            if (!view) return;
+            const update = () => setHeldOpen(Array.from(node.querySelectorAll(holdOpenSelector)).some(element =>
+                !element.hasAttribute('hidden') && element.getAttribute('aria-hidden') !== 'true' &&
+                view.getComputedStyle(element).display !== 'none'
+            ));
+            const observer = new view.MutationObserver(records => {
+                if (records.some(record => record.type === 'childList' ||
+                    (record.target as Element).matches(holdOpenSelector))) update();
+            });
+            observer.observe(node, {subtree: true, childList: true, attributes: true,
+                attributeFilter: ['style', 'hidden', 'aria-hidden']});
+            update();
+            return () => observer.disconnect();
+        }, [holdOpenSelector]);
 
         useLayoutEffect(() => {onOpenChange?.(open);}, [open, onOpenChange]);
 
@@ -195,7 +215,7 @@ export function createStandardLayout(React, {styles, targetStyles, context, Layo
             'data-pinned': pinned || undefined,
             ...(!portalContent && {onPointerEnter: enter, onPointerLeave: leave, onFocus: focus, onBlur: blur}),
             onKeyDown: event => {
-                if (event.key !== 'Escape' || pinned || !open || event.defaultPrevented) return;
+                if (event.key !== 'Escape' || pinned || heldOpen || !open || event.defaultPrevented) return;
                 setHovered(false);
                 setEngaged(false);
                 trigger.current.focus();
