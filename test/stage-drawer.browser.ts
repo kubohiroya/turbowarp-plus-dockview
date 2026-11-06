@@ -92,6 +92,7 @@ test('the default stage opens from the right edge and docks back from a real Doc
             };
         });
         await displayMenu(page).click();
+        await expect(page.getByRole('menuitem', {name: 'ステージを全画面表示にする', exact: true})).toBeVisible();
         await openItem.click();
         await expect(canvas(page)).toBeVisible();
         await expect(page.getByRole('region', {name: 'ステージ', exact: true})).toHaveCount(0);

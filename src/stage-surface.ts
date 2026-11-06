@@ -65,6 +65,10 @@ export function createStagePopoutHost<Request, Target extends {mount: HTMLElemen
 
 const isJapanese = (locale: string) => /^ja(?:-|$)/i.test(locale);
 
+export function stageFullscreenLabel(locale: string, fallback: string) {
+    return isJapanese(locale) ? 'ステージを全画面表示にする' : fallback;
+}
+
 export function stageDockActionLabel(locale: string, {drawer, detached, external}: {
     drawer?: boolean;
     detached: boolean;
