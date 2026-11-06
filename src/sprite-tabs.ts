@@ -1,7 +1,7 @@
 import React from 'react';
 import {createPortal} from 'react-dom';
 import {createDockview, DefaultTab, themeLight} from 'dockview';
-import type {DockviewGroupPanel, GroupPanelPartInitParameters, IDockviewPanel} from 'dockview';
+import type {DockviewGroupPanel, GroupPanelPartInitParameters, IDockviewPanel, SerializedDockview} from 'dockview';
 import {createSpriteLayoutMenu} from './sprite-layout-menu.ts';
 import {SpriteAssetPane} from './sprite-asset-pane.tsx';
 import type {SpriteVariable} from './sprite-asset-pane.tsx';
@@ -10,6 +10,8 @@ import type {SpriteSearchResult} from './sprite-editor-toolbar.tsx';
 import type {DockviewStagePane} from './dockview-stage.ts';
 import {getDocumentWorkspace} from './document-workspace.ts';
 import type {DocumentPanelRequest} from './document-workspace.ts';
+import {readWorkspaceLayout} from './workspace-layout.ts';
+import type {PanelReference, WorkspaceLayout} from './workspace-layout.ts';
 
 export {getDocumentWorkspace} from './document-workspace.ts';
 
@@ -24,6 +26,7 @@ interface Target {
     isOriginal: boolean;
     isStage: boolean;
     getName(): string;
+    getCostumes?(): {assetId?: string}[];
     getCurrentCostume?(): {asset?: CostumeAsset} | undefined;
 }
 
@@ -120,6 +123,8 @@ export type SpriteSplitDirection = 'right' | 'below';
 
 const stagePanelId = 'tw-plus-stage-display';
 const documentComponent = 'tw-plus-document';
+const documentTitle = ({filename, reference: {providerId, documentId}}: DocumentPanelRequest) =>
+    `${filename} (${providerId} / ${documentId})`;
 
 interface TabOptions<Snapshot = unknown> {
     vm: Project;
@@ -129,6 +134,12 @@ interface TabOptions<Snapshot = unknown> {
     resize(): void;
     reopenLabel: string;
     multiView?: boolean;
+    layoutStorage?: {
+        storage: Storage;
+        key: string;
+        isProjectLoading?(): boolean;
+        subscribeProject?(listener: () => void): (() => void) | undefined;
+    };
     stagePane?: DockviewStagePane;
     variables?: boolean;
     locale?: string;
@@ -181,6 +192,10 @@ const renameLabels = {
     ja: {title: 'スプライト名の変更', name: 'スプライト名', cancel: 'キャンセル', save: '変更'}
 };
 type RenameLabels = typeof renameLabels.en;
+const targetName = (target: Target) => target.isStage ? 'Stage' : target.getName();
+const projectSignature = (targets: readonly Target[]) => JSON.stringify(targets
+    .map(target => JSON.stringify([target.isStage, targetName(target), target.getCostumes?.()[0]?.assetId ?? '']))
+    .sort());
 
 class SpriteTab extends DefaultTab {
     private readonly icon: HTMLImageElement;
@@ -219,13 +234,21 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
     const costumeIcons = new WeakMap<CostumeAsset, string>();
     const remembered = new WeakMap<Target, number>();
     const lastUsed = new WeakMap<Target, View<Snapshot>>();
-    const closed = new WeakSet<Target>();
+    let closed = new WeakSet<Target>();
     let active: View<Snapshot> | undefined;
     let observed = vm.editingTarget;
     let syncing = false;
     let nextView = 0;
     let renameDialog: HTMLDialogElement | undefined;
     const text = options.renameLabels ?? renameLabels.en;
+    const persistence = multiView && options.layoutStorage;
+    const window = document.defaultView;
+    const documentWorkspace = multiView && getDocumentWorkspace(vm);
+    let pendingRestore = Boolean(persistence);
+    let restoreFrame: number | undefined;
+    let restoreTimeout: number | undefined;
+    let saveFrame: number | undefined;
+    const originalTargets = () => vm.runtime.targets.filter(target => target.isOriginal);
 
     const dockview = createDockview(root, {
         theme: themeLight,
@@ -496,7 +519,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
         if (splitPosition || views.has(id) || id === stagePanelId || documents.has(id)) {
             do {
                 id = 'sprite-view-' + ++nextView;
-            } while (views.has(id) || vm.runtime.targets.some(item => item.id === id));
+            } while (views.has(id) || documents.has(id) || vm.runtime.targets.some(item => item.id === id));
         }
         const source = splitPosition && views.get(splitPosition.referencePanel);
         views.set(id, {id, target, section: section ?? remembered.get(target) ?? options.getSection(),
@@ -533,6 +556,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
     }
 
     function openDocument(request: DocumentPanelRequest) {
+        if (pendingRestore) finishRestore();
         const {providerId, documentId} = request.reference;
         for (const [id, {request: opened}] of documents) {
             if (opened.reference.providerId === providerId && opened.reference.documentId === documentId) {
@@ -544,7 +568,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
         do {
             id = 'document-view-' + ++nextView;
         } while (views.has(id) || documents.has(id) || vm.runtime.targets.some(target => target.id === id));
-        const title = request.filename + ' (' + providerId + ' / ' + documentId + ')';
+        const title = documentTitle(request);
         documents.set(id, {request});
         try {
             dockview.addPanel({id, title, component: documentComponent, renderer: 'always'});
@@ -574,6 +598,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
 
     function openStage() {
         if (!stagePane) return;
+        if (pendingRestore) finishRestore();
         const existing = dockview.getPanel(stagePanelId);
         if (existing) {
             existing.api.setActive();
@@ -624,6 +649,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
             viewAdapter?.restore(describe(view), view.snapshots?.get(section)?.snapshot);
         }
         refreshSurfaces();
+        scheduleSave();
         return true;
     }
 
@@ -631,6 +657,106 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
         if (!active || !usesNativeSection(active.section) || active.section === section) return;
         active.section = section;
         refreshSurfaces();
+        scheduleSave();
+    }
+
+    function writeLayout() {
+        saveFrame = undefined;
+        const targets = originalTargets();
+        if (!persistence || pendingRestore || syncing || !targets.length || persistence.isProjectLoading?.()) return;
+        const {grid, activeGroup} = dockview.toJSON();
+        if (!activeGroup || grid.width <= 0 || grid.height <= 0) return;
+        const panels: Record<string, PanelReference> = Object.create(null);
+        for (const [id, view] of views) {
+            panels[id] = {kind: 'sprite', name: targetName(view.target), stage: view.target.isStage, section: view.section};
+        }
+        if (dockview.getPanel(stagePanelId)) panels[stagePanelId] = {kind: 'stage'};
+        for (const [id, {request}] of documents) panels[id] = {kind: 'document', ...request.reference};
+        const snapshot: WorkspaceLayout = {version: 1, project: projectSignature(targets), grid, activeGroup,
+            editingView: active?.id, panels};
+        try { persistence.storage.setItem(persistence.key, JSON.stringify(snapshot)); } catch { /* Storage can be unavailable. */ }
+    }
+
+    function scheduleSave() {
+        if (persistence && !pendingRestore && saveFrame === undefined) {
+            saveFrame = window.requestAnimationFrame(writeLayout);
+        }
+    }
+
+    function flushLayout() {
+        if (saveFrame !== undefined) {
+            window.cancelAnimationFrame(saveFrame);
+            writeLayout();
+        }
+    }
+
+    function finishRestore() {
+        pendingRestore = false;
+        window.clearTimeout(restoreTimeout);
+    }
+
+    function restoreLayout() {
+        restoreFrame = undefined;
+        if (!pendingRestore || !persistence || persistence.isProjectLoading?.()) return;
+        const targets = originalTargets();
+        if (!targets.length || !vm.editingTarget) return;
+        let stored: WorkspaceLayout | undefined;
+        try {
+            const raw = persistence.storage.getItem(persistence.key);
+            if (raw) stored = readWorkspaceLayout(raw, projectSignature(targets));
+        } catch { /* Storage can be unavailable. */ }
+        if (!stored) return finishRestore();
+        const resolvedSprites = new Map<string, View<Snapshot>>();
+        const resolvedDocuments = new Map<string, DocumentPanelRequest>();
+        const panels: SerializedDockview['panels'] = Object.create(null);
+        for (const [id, reference] of Object.entries(stored.panels)) {
+            if (reference.kind === 'sprite') {
+                const target = targets.find(item => item.isStage === reference.stage && targetName(item) === reference.name);
+                if (!target || id === stagePanelId || (reference.section === variableSection && !options.variables)) return finishRestore();
+                resolvedSprites.set(id, {id, target, section: reference.section, assets: createAssetSelections(target)});
+                panels[id] = {id, title: target.getName(), contentComponent: 'sprite', params: {icon: getIcon(target)}};
+            } else if (reference.kind === 'stage') {
+                if (!stagePane || id !== stagePanelId) return finishRestore();
+                panels[id] = {id, title: stagePane.title, contentComponent: stagePanelId, renderer: 'always'};
+            } else {
+                if (id === stagePanelId) return finishRestore();
+                const request = documentWorkspace && documentWorkspace.resolve(reference);
+                if (!request) {
+                    // The project can finish loading before the Blockly host publishes its document catalog.
+                    restoreTimeout ??= window.setTimeout(finishRestore, 2000);
+                    return;
+                }
+                resolvedDocuments.set(id, request);
+                panels[id] = {id, title: documentTitle(request), contentComponent: documentComponent, renderer: 'always'};
+            }
+        }
+        finishRestore();
+        syncing = true;
+        try {
+            dockview.clear();
+            active = undefined;
+            const represented = new Set([...resolvedSprites.values()].map(view => view.target));
+            closed = new WeakSet(targets.filter(target => !represented.has(target)));
+            for (const [id, view] of resolvedSprites) views.set(id, view);
+            for (const [id, request] of resolvedDocuments) documents.set(id, {request});
+            dockview.fromJSON({grid: stored.grid, activeGroup: stored.activeGroup, panels});
+            const selected = dockview.activePanel;
+            show(views.has(selected?.id) ? selected : dockview.getPanel(stored.editingView) ?? selected);
+        } catch {
+            dockview.clear();
+            for (const view of views.values()) disposeView(view);
+            for (const item of documents.values()) item.session?.dispose();
+            documents.clear();
+            closed = new WeakSet();
+            active = undefined;
+        } finally {
+            syncing = false;
+        }
+        refresh();
+    }
+
+    function scheduleRestore() {
+        if (pendingRestore && restoreFrame === undefined) restoreFrame = window.requestAnimationFrame(restoreLayout);
     }
 
     function refresh() {
@@ -663,6 +789,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
         } finally {
             syncing = false;
         }
+        scheduleRestore();
     }
 
     function disposeView(view: View<Snapshot>) {
@@ -681,6 +808,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
         } finally {
             syncing = false;
         }
+        scheduleSave();
     });
     const removal = dockview.onDidRemovePanel(panel => {
         const item = documents.get(panel.id);
@@ -699,8 +827,14 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
         disposeView(view);
         if (![...views.values()].some(item => item.target === view.target)) closed.add(view.target);
     });
-    const layout = multiView && dockview.onDidLayoutChange(refreshSurfaces);
-    const disconnectDocuments = multiView && getDocumentWorkspace(vm).connect(openDocument);
+    const layout = multiView && dockview.onDidLayoutChange(() => {
+        refreshSurfaces();
+        scheduleSave();
+    });
+    const disconnectDocuments = documentWorkspace && documentWorkspace.connect(openDocument);
+    const unsubscribeDocuments = persistence && documentWorkspace && documentWorkspace.subscribe(scheduleRestore);
+    const unsubscribeProject = persistence && persistence.subscribeProject?.(scheduleRestore);
+    if (persistence) window.addEventListener('pagehide', flushLayout);
     root.addEventListener('click', guardDocumentClose, true);
     root.addEventListener('keydown', guardDocumentClose, true);
     vm.on('targetsUpdate', refresh);
@@ -715,6 +849,12 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
         currentView: () => active && describe(active),
         views: () => [...views.values()].map(view => describe(view)),
         dispose() {
+            flushLayout();
+            window.cancelAnimationFrame(restoreFrame);
+            window.clearTimeout(restoreTimeout);
+            if (persistence) window.removeEventListener('pagehide', flushLayout);
+            if (unsubscribeDocuments) unsubscribeDocuments();
+            if (unsubscribeProject) unsubscribeProject();
             if (disconnectDocuments) disconnectDocuments();
             root.removeEventListener('click', guardDocumentClose, true);
             root.removeEventListener('keydown', guardDocumentClose, true);
@@ -853,6 +993,7 @@ function SpriteTabs<Snapshot>(props: SpriteTabsProps<Snapshot>) {
             resize: () => latest.current.resize(),
             reopenLabel: props.reopenLabel,
             multiView: props.multiView,
+            layoutStorage: props.layoutStorage,
             stagePane: props.stagePane,
             variables: hasVariables,
             locale: props.locale,
@@ -871,7 +1012,7 @@ function SpriteTabs<Snapshot>(props: SpriteTabsProps<Snapshot>) {
             instance.dispose();
         };
     }, [content, props.enabled, props.vm, props.reopenLabel, props.multiView, props.locale,
-        props.viewAdapter, props.stagePane, props.renameLabels, hasVariables, hasToolbar, hasAssetPreview]);
+        props.viewAdapter, props.stagePane, props.layoutStorage, props.renameLabels, hasVariables, hasToolbar, hasAssetPreview]);
     React.useLayoutEffect(() => {
         controller.current?.syncActiveSection(props.activeSection);
     }, [props.activeSection]);
