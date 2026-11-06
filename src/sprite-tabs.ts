@@ -11,7 +11,7 @@ import type {SpriteSearchResult} from './sprite-editor-toolbar.tsx';
 import type {DockviewStagePane} from './dockview-stage.ts';
 import {getDocumentWorkspace} from './document-workspace.ts';
 import type {DocumentPanelRequest} from './document-workspace.ts';
-import {readWorkspaceLayout} from './workspace-layout.ts';
+import {readWorkspaceLayout, workspaceWithoutTransientPanels} from './workspace-layout.ts';
 import type {PanelReference, WorkspaceLayout} from './workspace-layout.ts';
 
 export {getDocumentWorkspace} from './document-workspace.ts';
@@ -144,7 +144,7 @@ interface TabOptions<Snapshot = unknown> {
     reopenLabel: string;
     multiView?: boolean;
     layoutStorage?: {
-        storage: Storage;
+        storage: Pick<Storage, 'getItem' | 'setItem'>;
         key: string;
         isProjectLoading?(): boolean;
         subscribeProject?(listener: () => void): (() => void) | undefined;
@@ -680,8 +680,14 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
             panels[id] = {kind: 'sprite', name: targetName(view.target), stage: view.target.isStage, section: view.section};
         }
         if (dockview.getPanel(stagePanelId)) panels[stagePanelId] = {kind: 'stage'};
-        for (const [id, {request}] of documents) panels[id] = {kind: 'document', ...request.reference};
-        const snapshot: WorkspaceLayout = {version: 1, project: projectSignature(targets), grid, activeGroup,
+        const transient = new Set<string>();
+        for (const [id, {request}] of documents) {
+            if (request.transient) transient.add(id);
+            else panels[id] = {kind: 'document', ...request.reference};
+        }
+        const saved = workspaceWithoutTransientPanels(grid, activeGroup, transient, active?.id);
+        if (!saved) return;
+        const snapshot: WorkspaceLayout = {version: 1, project: projectSignature(targets), ...saved,
             editingView: active?.id, panels};
         try { persistence.storage.setItem(persistence.key, JSON.stringify(snapshot)); } catch { /* Storage can be unavailable. */ }
     }

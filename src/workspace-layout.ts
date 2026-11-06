@@ -18,6 +18,31 @@ export interface WorkspaceLayout {
     panels: Record<string, PanelReference>;
 }
 
+export function workspaceWithoutTransientPanels(grid: Grid, activeGroup: string, transient: ReadonlySet<string>,
+    editingView?: string): {grid: Grid; activeGroup: string} | undefined {
+    if (!transient.size) return {grid, activeGroup};
+    const groups = new Map<string, readonly string[]>();
+    const trim = (node: Node): Node | undefined => {
+        if (Array.isArray(node.data)) {
+            const data = node.data.flatMap(child => {
+                const kept = trim(child);
+                return kept ? [kept] : [];
+            });
+            return data.length ? {...node, data} : undefined;
+        }
+        const views = node.data.views.filter(id => !transient.has(id));
+        if (!views.length) return;
+        const activeView = views.includes(node.data.activeView!) ? node.data.activeView : views[0];
+        groups.set(node.data.id, views);
+        return {...node, data: {...node.data, views, activeView}};
+    };
+    const root = trim(grid.root);
+    if (!root) return;
+    if (groups.has(activeGroup)) return {grid: {...grid, root}, activeGroup};
+    const fallback = [...groups].find(([, views]) => editingView && views.includes(editingView));
+    return {grid: {...grid, root}, activeGroup: fallback?.[0] ?? groups.keys().next().value!};
+}
+
 const limit = 256;
 const validId = (value: unknown): value is string =>
     typeof value === 'string' && value.length > 0 && value.length <= 1024;
