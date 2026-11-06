@@ -1,4 +1,5 @@
 import React from 'react';
+import {SpritePropertiesPanel, type SpritePropertiesPanelProps} from './sprite-properties.tsx';
 import type {SpriteAssetPreviewItem} from './sprite-tabs.ts';
 
 interface NativeAssetPanelProps {
@@ -131,6 +132,9 @@ export interface SpriteMediaPaneProps extends PaneProps {
 export interface SpriteVariablePaneProps extends PaneProps {
     kind: 'variables';
     variables: readonly SpriteVariable[];
+    properties?: SpritePropertiesPanelProps['values'];
+    targetId?: string;
+    onWriteProperties?: SpritePropertiesPanelProps['onChange'];
     onWrite(id: string, value: SpriteVariable['value']): void;
 }
 
@@ -244,9 +248,12 @@ function VariableField({variable, editable, onWrite}: {
         }} />;
 }
 
-function VariablePane({variables, editable, onWrite, locale}: SpriteVariablePaneProps) {
+function VariablePane({variables, editable, onWrite, locale, properties, targetId, onWriteProperties}: SpriteVariablePaneProps) {
     const labels = labelsFor(locale);
     return <section className="tw-sprite-variables" aria-label={labels.variables}>
+        {properties && targetId && onWriteProperties &&
+            <SpritePropertiesPanel targetId={targetId} values={properties} locale={locale}
+                disabled={!editable} onChange={onWriteProperties} />}
         {variables.length ? <table className="tw-sprite-variables__table">
             <thead><tr><th scope="col">{labels.name}</th><th scope="col">{labels.value}</th></tr></thead>
             <tbody>{variables.map(variable => <tr key={variable.id}>

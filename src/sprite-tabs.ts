@@ -6,6 +6,7 @@ import {createSpriteLayoutMenu} from './sprite-layout-menu.ts';
 import {NativeAssetPanel, SpriteAssetPane} from './sprite-asset-pane.tsx';
 import type {NativeAssetPanelRenderer, NativeAssetSelector, SpriteAssetLayout} from './sprite-asset-pane.tsx';
 import type {SpriteVariable} from './sprite-asset-pane.tsx';
+import type {SpritePropertiesPanelProps} from './sprite-properties.tsx';
 import {SpriteEditorToolbar, spriteEditorSections} from './sprite-editor-toolbar.tsx';
 import type {SpriteSearchResult} from './sprite-editor-toolbar.tsx';
 import type {DockviewStagePane} from './dockview-stage.ts';
@@ -365,12 +366,11 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
         return {...menu, init() {}};
     }
 
-    function isOpen(target: Target) {
-        return [...views.values()].some(view => view.target === target) && vm.runtime.targets.includes(target);
-    }
+    const canRename = (target: Target) =>
+        target.isOriginal && !target.isStage && Boolean(vm.renameSprite) && vm.runtime.targets.includes(target);
 
     function openRenameDialog(target: Target) {
-        if (renameDialog || !isOpen(target)) return;
+        if (renameDialog || !canRename(target)) return;
         const dialog = document.createElement('dialog');
         dialog.className = 'tw-plus-sprite-rename';
         dialog.setAttribute('aria-label', text.title);
@@ -396,7 +396,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
             dialog.remove();
             if (renameDialog !== dialog) return;
             renameDialog = undefined;
-            if (dialog.returnValue === 'save' && input.value.trim() && isOpen(target) &&
+            if (dialog.returnValue === 'save' && input.value.trim() && canRename(target) &&
                 input.value !== target.getName()) vm.renameSprite?.(target.id, input.value);
         }, {once: true});
         renameDialog = dialog;
@@ -856,6 +856,10 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
     refresh();
     return {
         select, openStage, closeStage, split, closeSplit, activateView, setViewSection, syncActiveSection, refreshSurfaces,
+        rename(id: string) {
+            const target = vm.runtime.targets.find(item => item.id === id);
+            if (target) openRenameDialog(target);
+        },
         selectAsset(id: string, kind: AssetKind, index: number) {
             if (active?.id === id && active.section === (kind === 'costumes' ? 1 : 2)) {
                 active.assets.selectors.get(kind)?.(index);
@@ -906,6 +910,8 @@ type SpriteTabsProps<Snapshot> = Omit<TabOptions<Snapshot>, 'activateSection' | 
     renderToolbar?(view: SpriteTabView, actions: ToolbarActions): React.ReactNode;
     getAssetPreview?(targetId: string, kind: SpriteAssetKind): SpriteAssetPreviewData;
     getVariables?(targetId: string): readonly SpriteVariable[];
+    getProperties?(targetId: string): SpritePropertiesPanelProps['values'];
+    writeProperties?: SpritePropertiesPanelProps['onChange'];
     writeVariable?(targetId: string, id: string, value: SpriteVariable['value']): void;
     getCodeSearchItems?(targetId: string): readonly SpriteSearchResult[];
     openCodeSearchResult?(targetId: string, id: string): void;
@@ -1054,7 +1060,7 @@ function SpriteTabs<Snapshot>(props: SpriteTabsProps<Snapshot>) {
             const toolbar = props.renderToolbar?.(view, actions) ?? (props.getVariables &&
                 React.createElement(SpriteEditorToolbar, {
                     viewId: view.id, locale: props.locale, section: currentSection, isStage: view.isStage,
-                    activeGroup: view.groupActive,
+                    activeGroup: view.groupActive, propertiesInVariables: Boolean(props.getProperties),
                     actions: view.active && currentSection !== 'variables' ? props.activeTools : undefined,
                     onSectionChange: section => actions.setSection(spriteEditorSections.indexOf(section)),
                     search: {
@@ -1086,6 +1092,12 @@ function SpriteTabs<Snapshot>(props: SpriteTabsProps<Snapshot>) {
         }), assetPreviewSlots.map(({id, targetId, kind, element, editable, selected, renderLayout, scrollTop}) =>
             createPortal(kind === 'variables' ? React.createElement(SpriteAssetPane, {
                 kind, locale: props.locale, editable, variables: props.getVariables?.(targetId) ?? [],
+                properties: props.getProperties?.(targetId),
+                targetId,
+                onWriteProperties(id: string, patch: Parameters<SpritePropertiesPanelProps['onChange']>[1]) {
+                    props.writeProperties?.(id, patch);
+                    workspace?.refreshSurfaces();
+                },
                 onWrite(variableId, value) {
                     props.writeVariable?.(targetId, variableId, value);
                     workspace?.refreshSurfaces();
@@ -1121,7 +1133,10 @@ export function useSpriteTabs<Snapshot>({available, enabled, locale, ...props}:
     return {
         controller,
         assetSelections: enabled ? selection.assets : undefined,
-        context: enabled ? {selectedId: selection.id, openLabel: japanese ? '開く' : 'Open', select, open: select} : null,
+        context: enabled ? {
+            selectedId: selection.id, openLabel: japanese ? '開く' : 'Open', select, open: select,
+            rename: props.multiView && props.getProperties ? (id: string) => controller.current?.rename(id) : undefined
+        } : null,
         renderEditorTabRow: available ? (children: React.ReactNode) => React.createElement(SpriteTabs<Snapshot>, {
             ...props, enabled, locale, children, slots, onAttach: () => setReady(true),
             selectTarget: (id, assets) => setSelection({id, assets}),

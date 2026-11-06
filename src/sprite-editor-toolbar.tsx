@@ -23,6 +23,7 @@ interface SpriteEditorToolbarProps {
     activeGroup?: boolean;
     search?: SpriteEditorSearch;
     availableSections?: readonly SpriteEditorSection[];
+    propertiesInVariables?: boolean;
     actions?: React.ReactNode;
 }
 
@@ -95,10 +96,10 @@ function SearchBox({viewId, section, japanese, search}: {
 }
 
 export function SpriteEditorToolbar({viewId, locale, section, onSectionChange, isStage, activeGroup, search,
-    availableSections = spriteEditorSections, actions}: SpriteEditorToolbarProps) {
+    availableSections = spriteEditorSections, propertiesInVariables = false, actions}: SpriteEditorToolbarProps) {
     const japanese = /^ja(?:-|$)/i.test(locale);
-    const labels = japanese ? {code: 'コード', costumes: isStage ? '背景' : 'コスチューム', sounds: '音', variables: '変数'} :
-        {code: 'Code', costumes: isStage ? 'Backdrops' : 'Costumes', sounds: 'Sounds', variables: 'Variables'};
+    const labels = japanese ? {code: 'コード', costumes: isStage ? '背景' : 'コスチューム', sounds: '音', variables: propertiesInVariables ? 'プロパティ・変数' : '変数'} :
+        {code: 'Code', costumes: isStage ? 'Backdrops' : 'Costumes', sounds: 'Sounds', variables: propertiesInVariables ? 'Properties & Variables' : 'Variables'};
     return <div className="tw-plus-sprite-toolbar" data-active-group={activeGroup}>
         <div className="tw-plus-sprite-toolbar-sections" role="tablist"
             aria-label={japanese ? 'スプライトの編集内容' : 'Sprite editor sections'}>

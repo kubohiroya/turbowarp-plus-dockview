@@ -26,12 +26,16 @@ let kind = 'costumes';
 let selectedId = 'c1';
 let editable = true;
 let value = 5;
+let x = 10;
 let activateOnClick = false;
 window.selections = [];
 window.writes = [];
 function render(synchronous = true) {
     const props = kind === 'variables' ? {
         variables:[{id:'speed', name:'Speed', value, scope:'local'}],
+        targetId:'sprite',
+        properties:{name:'Dango', x},
+        onWriteProperties(_id, patch) { x = patch.x; render(false); },
         onWrite(id, next) { window.writes.push([id, next]); value = next; render(false); }
     } : {
         items:assets[kind], selectedId,
@@ -60,6 +64,7 @@ test('assets keep selection and dimensions while inactive; variables retain and 
     const page = await browser.newPage({viewport: {width: 640, height: 480}});
     const routes = new Map([
         ['/sprite-asset-pane.js', new URL('../dist/sprite-asset-pane.js', import.meta.url)],
+        ['/sprite-properties.js', new URL('../dist/sprite-properties.js', import.meta.url)],
         ['/sprite-asset-pane.css', new URL('../src/sprite-asset-pane.css', import.meta.url)],
         ...['react', 'react-dom'].map(name => [
             `/${name}.umd.js`, path.join(path.dirname(require.resolve(name + '/package.json')), 'umd', name + '.development.js')
@@ -69,7 +74,7 @@ test('assets keep selection and dimensions while inactive; variables retain and 
         const {pathname} = new URL(route.request().url());
         if (pathname === '/') return route.fulfill({contentType: 'text/html', body: html});
         if (pathname === '/react.js') {
-            return route.fulfill({contentType: 'application/javascript', body: 'export default window.React;'});
+            return route.fulfill({contentType: 'application/javascript', body: 'export const {useRef, useState} = window.React; export default window.React;'});
         }
         const source = routes.get(pathname);
         if (!source) return route.fulfill({status: 404});
@@ -105,12 +110,18 @@ test('assets keep selection and dimensions while inactive; variables retain and 
     }
 
     await page.evaluate(() => window.section('variables'));
+    const x = page.getByLabel(/^x$/i);
+    await x.fill('30');
+    await x.press('Enter');
+    assert.equal(await x.inputValue(), '30');
     const speed = page.getByRole('textbox', {name: 'Speed'});
     await speed.fill('7');
     const activeField = await box(speed);
     await page.evaluate(() => window.mode(false));
     assert.equal(await speed.inputValue(), '7');
     assert.equal(await speed.isEditable(), false);
+    assert.equal(await x.inputValue(), '30');
+    assert.equal(await x.isEditable(), false);
     assert.deepEqual(await box(speed), activeField);
     await page.evaluate(() => window.mode(true));
     assert.equal(await speed.isEditable(), true);
