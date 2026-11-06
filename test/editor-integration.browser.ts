@@ -87,7 +87,6 @@ test('the pinned GUI uses its existing editor slots for Dockview sprite tabs',
         await firstTab.locator('.dv-default-tab-action').click();
         await expect(firstTab).toHaveCount(0);
         await expect.poll(() => page.evaluate(() => window.vm.editingTarget.id)).toBe(second);
-        await page.getByRole('button', {name: 'スプライト一覧を展開', exact: true}).click();
         await page.getByText('ダンゴ', {exact: true}).first().click();
         await expect(firstTab).toBeVisible();
 
