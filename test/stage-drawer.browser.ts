@@ -120,7 +120,7 @@ test('the default stage opens from the right edge and docks back from a real Doc
         await displayMenu(popup).click();
         await Promise.all([
             popup.waitForEvent('close'),
-            popup.getByRole('menuitem', {name: 'ドックに戻す', exact: true}).click()
+            popup.getByRole('menuitem', {name: 'ステージをエディターに戻す', exact: true}).click()
         ]);
         await expectDocked();
 
