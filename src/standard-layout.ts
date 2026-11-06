@@ -255,17 +255,18 @@ export function createStandardLayout(React, {styles, targetStyles, context, Layo
         return element(targets.BackdropFooter, {buttons: unique, label: isJapanese(locale) ? '背景を追加' : 'Add a backdrop'});
     }
 
-    function SpritePropertiesSection({fallback, children}) {
+    function SpritePropertiesSection({fallback, children, inEditor = false}) {
         const {plusLayout, locale} = useContext(context);
         const [expanded, setExpanded] = useState(false);
         const tools = useContext(targetTools);
         return plusLayout ? element('div', {className: styles.spriteProperties},
-            element('button', {
-                type: 'button', className: styles.spritePropertiesToggle, 'aria-expanded': expanded,
-                onClick: () => setExpanded(open => !open)
-            }, isJapanese(locale) ? 'スプライト' : 'Sprite'),
+            inEditor ? element('span', null, isJapanese(locale) ? 'スプライト' : 'Sprite') :
+                element('button', {
+                    type: 'button', className: styles.spritePropertiesToggle, 'aria-expanded': expanded,
+                    onClick: () => setExpanded(open => !open)
+                }, isJapanese(locale) ? 'スプライト' : 'Sprite'),
             element('div', {ref: tools?.[1]}),
-            element('div', {className: styles.spritePropertiesContent, hidden: !expanded}, children)
+            !inEditor && element('div', {className: styles.spritePropertiesContent, hidden: !expanded}, children)
         ) : fallback;
     }
 

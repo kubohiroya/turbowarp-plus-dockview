@@ -6,7 +6,7 @@ const padding = gap * 2;
 export function createTargetList(React, styles) {
     const {createElement: element, useLayoutEffect, useRef, useState} = React;
 
-    function SpriteGrid({className, compact, standard, stageTile, children, query = ''}) {
+    function SpriteGrid({className, compact, standard, stageTile, children, query = '', onRename}) {
         const grid = useRef(null);
         const [size, setSize] = useState({width: 0, height: 0, visibleRows: 0});
         useLayoutEffect(() => {
@@ -51,6 +51,11 @@ export function createTargetList(React, styles) {
         const placement = standard || size.width < size.height ? 'bottom-right' :
             (columns >= 2 ? 'top-right' : 'inline');
         const rows = Math.max(size.visibleRows, Math.ceil((React.Children.count(children) + 1) / columns));
+        const tiles = onRename ? React.Children.map(children, child => {
+            const tile = React.isValidElement(child) && child.props.children;
+            if (!React.isValidElement(tile) || !tile.props.id) return child;
+            return React.cloneElement(child, {}, React.cloneElement(tile, {onRenameButtonClick: onRename}));
+        }) : children;
         return element('div', {
             className: compact ? `${className} ${styles.grid}` : className,
             'data-standard-target-grid': standard || undefined,
@@ -61,7 +66,7 @@ export function createTargetList(React, styles) {
                 '--target-columns': columns,
                 '--target-rows-before-last': rows > 1 ? `repeat(${rows - 1}, ${tileHeight}px)` : undefined
             } : undefined
-        }, children, stageTile && element('div', {className: styles.backdropCell, key: 'stage'}, stageTile));
+        }, tiles, stageTile && element('div', {className: styles.backdropCell, key: 'stage'}, stageTile));
     }
 
     function BackdropTile({url, label, selected, highlighted, containerRef, onClick, onMouseEnter, onMouseLeave}) {
