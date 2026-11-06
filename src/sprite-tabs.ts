@@ -183,6 +183,9 @@ function SpriteTabs(props: SpriteTabsProps) {
         sections.current.append(...props.slots);
         parking.current.appendChild(content);
         latest.current.onAttach();
+        const observer = new content.ownerDocument.defaultView.ResizeObserver(() => latest.current.resize());
+        observer.observe(sections.current);
+        return () => observer.disconnect();
     }, [content, props.slots]);
     React.useLayoutEffect(() => {
         if (!props.enabled) {
