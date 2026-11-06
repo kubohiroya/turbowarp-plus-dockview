@@ -47,7 +47,7 @@ export function useDockviewStage(enabled: boolean, locale: string) {
     }), [japanese, move]);
     return surface && {
         surface, pane, docked, commands, inlineRef, suspend,
-        openLabel: japanese ? '作業領域で開く' : 'Open stage in workspace',
+        openLabel: japanese ? 'ステージをタブで開く' : 'Open stage in workspace',
         closeLabel: japanese ? '作業領域から戻す' : 'Return stage from workspace'
     };
 }
