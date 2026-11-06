@@ -327,6 +327,10 @@
     z-index: 90;
 }
 
+.standard-body .stage-drawer {
+    right: 0;
+}
+
 .standard-body {
     --plus-extension-button-width: 2.75rem;
     --plus-extension-button-gap: 0.75rem;
@@ -468,6 +472,25 @@ details.layout-menu button {
     width: var(--plus-target-width);
     height: 100%;
     pointer-events: none;
+}
+
+.edge-drawer[data-edge="right"] {
+    flex-direction: row-reverse;
+    pointer-events: none;
+}
+
+[dir="rtl"] .edge-drawer[data-edge="right"] {
+    flex-direction: row;
+}
+
+.edge-drawer[data-edge="right"] .edge-trigger {
+    width: 0.625rem;
+    min-height: 3rem;
+    visibility: visible;
+}
+
+.edge-drawer[data-edge="right"] .edge-panel {
+    background: transparent;
 }
 
 .edge-drawer[data-edge="bottom"] {

@@ -14,11 +14,13 @@ export function createStandardLayout(React, {styles, targetStyles, context, Layo
     const targetTools = React.createContext(null);
 
     function StandardLayout({
-        enabled, splitter, windowLayout, stageActionEnabled, onPaletteModeChange, windowTools, Container, render, ...props
+        enabled, splitter, windowLayout, stageActionEnabled, stageDrawer = false,
+        onPaletteModeChange, windowTools, Container, render, ...props
     }) {
         const [showUndock, setShowUndock] = useState(false);
         const [targetsPinned, setTargetsPinned] = useState(false);
         const [showStage, setShowStage] = useState(true);
+        const [stageDrawerOpen, setStageDrawerOpen] = useState(false);
         const [size, setSize] = useState(null);
         const [targetRatio, setTargetRatio] = useState(null);
         const [preferredStageWidth, setPreferredStageWidth] = useState(null);
@@ -94,10 +96,11 @@ export function createStandardLayout(React, {styles, targetStyles, context, Layo
             };
             if (!plusLayout) return shared;
             const stageOverlap = `${stageWidth + 20}px`;
+            const stageOverlaps = showStage && (!stageDrawer || stageDrawerOpen);
             const bodyStyle = {
                 display: 'grid',
-                '--plus-stage-overlap': showStage ? stageOverlap : '0px',
-                '--plus-stage-tab-inset': showStage ? stageOverlap : '3rem'
+                '--plus-stage-overlap': stageOverlaps ? stageOverlap : '0px',
+                '--plus-stage-tab-inset': stageOverlaps ? stageOverlap : '3rem'
             };
             if (resizable) {
                 bodyStyle['--plus-target-width'] = `${targetSplit.first}px`;
@@ -117,7 +120,7 @@ export function createStandardLayout(React, {styles, targetStyles, context, Layo
                 columnSplitter,
                 editorStyle: {gridArea: 'editor', minWidth: 0, minHeight: 0},
                 stageColumnStyle: {display: 'contents'},
-                stageClassName: `${styles.stagePanel} ${styles.floatingStage}${stageHidden ? ` ${styles.stageHidden}` : ''}`,
+                stageClassName: `${styles.stagePanel} ${styles.floatingStage}${stageDrawer ? ` ${styles.stageDrawer}` : ''}${stageHidden ? ` ${styles.stageHidden}` : ''}`,
                 targetClassName: targetsPinned ? styles.standardTargets :
                     `${styles.standardTargets} ${styles.retractedTargets}`,
                 stageDisplayWidth: stageWidth,
@@ -142,7 +145,8 @@ export function createStandardLayout(React, {styles, targetStyles, context, Layo
             render: slots => render(applyStandardLayout(slots), showUndock)
         });
         return element(context.Provider, {value: {
-            showUndock, plusLayout, targetsPinned, setTargetsPinned, stageHidden, setStageVisible: setShowStage, stageResize, stageActionMount, locale: props.locale
+            showUndock, plusLayout, targetsPinned, setTargetsPinned, stageHidden, setStageVisible: setShowStage, stageResize, stageActionMount,
+            stageDrawer: plusLayout && stageDrawer, setStageDrawerOpen, locale: props.locale
         }},
             Container ? element(Container, {locale: props.locale}, layout) : layout);
     }
@@ -192,7 +196,7 @@ export function createStandardLayout(React, {styles, targetStyles, context, Layo
                     if (panel.current && !panel.current.hidden) panel.current.focus({preventScroll: true});
                 });
             }
-        }, edge === 'left' ? '›' : '⌃'),
+        }, {left: '›', right: '‹', bottom: '⌃'}[edge]),
         element('div', {className: styles.edgePanel, ref: panel, tabIndex: -1, hidden: !open}, children));
     }
 
