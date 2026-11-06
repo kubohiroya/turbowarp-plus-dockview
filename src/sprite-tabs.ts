@@ -3,7 +3,8 @@ import {createPortal} from 'react-dom';
 import {createDockview, DefaultTab, themeLight} from 'dockview';
 import type {DockviewGroupPanel, GroupPanelPartInitParameters, IDockviewPanel, SerializedDockview} from 'dockview';
 import {createSpriteLayoutMenu} from './sprite-layout-menu.ts';
-import {SpriteAssetPane} from './sprite-asset-pane.tsx';
+import {NativeAssetPanel, SpriteAssetPane} from './sprite-asset-pane.tsx';
+import type {NativeAssetPanelRenderer, NativeAssetSelector, SpriteAssetLayout} from './sprite-asset-pane.tsx';
 import type {SpriteVariable} from './sprite-asset-pane.tsx';
 import {SpriteEditorToolbar, spriteEditorSections} from './sprite-editor-toolbar.tsx';
 import type {SpriteSearchResult} from './sprite-editor-toolbar.tsx';
@@ -61,6 +62,8 @@ export interface SpriteTabAdapter<Snapshot = unknown> {
 export interface SpriteAssetSelection {
     restore(target: object, assets: readonly object[]): number | undefined;
     remember(target: object, asset: object | undefined, select?: (index: number) => void): void;
+    renderPanel?(render: NativeAssetPanelRenderer, previewSelector: NativeAssetSelector,
+        panel: React.ComponentProps<typeof NativeAssetPanel>['panel']): React.ReactNode;
     rememberLayout?(render: SpriteAssetLayout): void;
     getScrollTop?(): number;
     rememberScrollTop?(position: number): void;
@@ -77,7 +80,6 @@ export interface SpriteAssetPreviewItem {
     duration?: number;
 }
 
-type SpriteAssetLayout = (items: readonly SpriteAssetPreviewItem[], index: number, detail: React.ReactNode, scrollTop: number) => React.ReactNode;
 const variableSection = spriteEditorSections.indexOf('variables');
 
 export interface SpriteAssetPreviewData {
@@ -95,26 +97,33 @@ function createAssetSelections(target: Target, source?: {
     const layouts = new Map(source?.layouts);
     const scroll = new Map(source?.scroll);
     const selectors = new Map<AssetKind, (index: number) => void>();
-    const forKind = (kind: AssetKind): SpriteAssetSelection => ({
-        restore(current, assets) {
-            if (current !== target) return;
-            const index = assets.indexOf(selected.get(kind));
-            if (index >= 0) return index;
-        },
-        remember(current, asset, select) {
-            if (current !== target) return;
-            if (asset) selected.set(kind, asset);
-            else selected.delete(kind);
-            if (select) selectors.set(kind, select);
-        },
-        rememberLayout(render) {
-            layouts.set(kind, render);
-        },
-        getScrollTop: () => scroll.get(kind) ?? 0,
-        rememberScrollTop(position) {
-            scroll.set(kind, position);
-        }
-    });
+    const forKind = (kind: AssetKind): SpriteAssetSelection => {
+        const state = {
+            rememberLayout(render: SpriteAssetLayout) {
+                layouts.set(kind, render);
+            },
+            getScrollTop: () => scroll.get(kind) ?? 0,
+            rememberScrollTop(position: number) {
+                scroll.set(kind, position);
+            }
+        };
+        return {
+            ...state,
+            renderPanel: (render, previewSelector, panel) =>
+                React.createElement(NativeAssetPanel, {render, previewSelector, panel, state}),
+            restore(current, assets) {
+                if (current !== target) return;
+                const index = assets.indexOf(selected.get(kind));
+                if (index >= 0) return index;
+            },
+            remember(current, asset, select) {
+                if (current !== target) return;
+                if (asset) selected.set(kind, asset);
+                else selected.delete(kind);
+                if (select) selectors.set(kind, select);
+            },
+        };
+    };
     const ports: AssetSelections = {costumes: forKind('costumes'), sounds: forKind('sounds')};
     return {selected, ports, layouts, selectors, scroll};
 }

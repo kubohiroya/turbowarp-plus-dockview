@@ -1,4 +1,100 @@
 import React from 'react';
+import type {SpriteAssetPreviewItem} from './sprite-tabs.ts';
+
+interface NativeAssetPanelProps {
+    children?: React.ReactNode;
+    buttons: readonly {title: string; img: string; onClick(): void}[];
+    items: readonly {dragPayload?: object; name: string; url?: string; details?: React.ReactNode}[];
+    isRtl?: boolean;
+    listActions?: React.ElementType;
+    selectedItemIndex: number;
+    onItemClick(index: number): void;
+}
+
+interface NativeSelectorProps extends NativeAssetPanelProps {
+    wrapperAttributes?: Record<string, string>;
+    listRef?(node: HTMLElement | null): void;
+    onListScroll?(event: React.UIEvent<HTMLElement>): void;
+    draggingType?: null;
+    onAddSortable?(): void;
+    onRemoveSortable?(): void;
+}
+
+export type NativeAssetSelector = React.ComponentType<NativeSelectorProps>;
+export type NativeAssetPanelRenderer = (props: NativeAssetPanelProps, options: {
+    panelAttributes: Record<string, string>;
+    detailAttributes: Record<string, string>;
+    renderSelector(Component: NativeAssetSelector, props: NativeSelectorProps): React.ReactNode;
+}) => React.ReactNode;
+
+export type SpriteAssetLayout = (items: readonly SpriteAssetPreviewItem[], index: number,
+    detail: React.ReactNode, scrollTop: number) => React.ReactNode;
+
+interface PanelState {
+    rememberLayout(render: SpriteAssetLayout): void;
+    getScrollTop(): number;
+    rememberScrollTop(position: number): void;
+}
+
+const noop = () => {};
+
+function NativeAssetPanelSurface({render, panel, state, previewSelector, scrollTop}: {
+    render: NativeAssetPanelRenderer;
+    panel: NativeAssetPanelProps;
+    state?: PanelState;
+    previewSelector?: NativeAssetSelector;
+    scrollTop?: number;
+}) {
+    const list = React.useRef<HTMLElement | null>(null);
+    const setList = React.useCallback((node: HTMLElement | null) => {
+        list.current = node;
+    }, []);
+    React.useLayoutEffect(() => {
+        const position = state?.getScrollTop() ?? scrollTop;
+        if (list.current && position !== undefined) list.current.scrollTop = position;
+    }, [state, scrollTop]);
+
+    return render(panel, {
+        panelAttributes: {'data-layout-asset-panel': ''},
+        detailAttributes: {'data-layout-asset-detail': ''},
+        renderSelector(Component, props) {
+            const selectorProps = {...props, listRef: setList, wrapperAttributes: {'data-layout-asset-list': ''}};
+            if (previewSelector) {
+                return <div {...{inert: ''}} style={{display: 'contents'}}>
+                    {React.createElement(previewSelector, {
+                        ...selectorProps, draggingType: null, onAddSortable: noop, onRemoveSortable: noop
+                    })}
+                </div>;
+            }
+            return <Component {...selectorProps} onListScroll={event => {
+                state?.rememberScrollTop(event.currentTarget.scrollTop);
+            }} />;
+        }
+    });
+}
+
+export function NativeAssetPanel({render, previewSelector, panel, state}: {
+    render: NativeAssetPanelRenderer;
+    previewSelector: NativeAssetSelector;
+    panel: NativeAssetPanelProps;
+    state: PanelState;
+}) {
+    const {items, buttons, isRtl, listActions} = panel;
+    React.useLayoutEffect(() => {
+        const previousItems = new Map(items.map(item => [item.dragPayload, item]));
+        const readOnlyButtons = buttons.map(({title, img}) => ({title, img, onClick: noop}));
+        state.rememberLayout((previewItems, selectedItemIndex, detail, scrollTop) => <NativeAssetPanelSurface
+            render={render} previewSelector={previewSelector} scrollTop={scrollTop} panel={{
+                isRtl, listActions, selectedItemIndex, buttons: readOnlyButtons,
+                onItemClick: noop, children: detail,
+                items: previewItems.map(item => {
+                    const previous = previousItems.get(item.asset);
+                    return {name: item.name, url: item.imageUrl || previous?.url, details: previous?.details};
+                })
+            }} />);
+    }, [state, render, previewSelector, items, buttons, isRtl, listActions]);
+    return <NativeAssetPanelSurface render={render} panel={panel} state={state} />;
+}
 
 export interface SpriteMediaAsset {
     /** Host identity for this item within its target, independent of the list order. */
