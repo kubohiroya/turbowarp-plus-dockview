@@ -774,3 +774,10 @@ details.layout-menu button {
 .floating-stage:has([data-stage-in-workspace]:empty) {
     pointer-events: none;
 }
+
+:global(.tw-plus-document-slot) {
+    inline-size: 100%;
+    block-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+}

@@ -8,6 +8,10 @@ import type {SpriteVariable} from './sprite-asset-pane.tsx';
 import {SpriteEditorToolbar, spriteEditorSections} from './sprite-editor-toolbar.tsx';
 import type {SpriteSearchResult} from './sprite-editor-toolbar.tsx';
 import type {DockviewStagePane} from './dockview-stage.ts';
+import {getDocumentWorkspace} from './document-workspace.ts';
+import type {DocumentPanelRequest} from './document-workspace.ts';
+
+export {getDocumentWorkspace} from './document-workspace.ts';
 
 export {useDockviewStage} from './dockview-stage.ts';
 
@@ -115,6 +119,7 @@ function createAssetSelections(target: Target, source?: {
 export type SpriteSplitDirection = 'right' | 'below';
 
 const stagePanelId = 'tw-plus-stage-display';
+const documentComponent = 'tw-plus-document';
 
 interface TabOptions<Snapshot = unknown> {
     vm: Project;
@@ -210,6 +215,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
     const editLabel = /^ja(?:-|$)/i.test(locale) ? 'クリックしてこのビューで編集' : 'Activate this view to edit';
     const slots = new Map<string, TabSlot>();
     const views = new Map<string, View<Snapshot>>();
+    const documents = new Map<string, {request: DocumentPanelRequest; session?: ReturnType<DocumentPanelRequest['mount']>}>();
     const costumeIcons = new WeakMap<CostumeAsset, string>();
     const remembered = new WeakMap<Target, number>();
     const lastUsed = new WeakMap<Target, View<Snapshot>>();
@@ -232,8 +238,17 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
             if (!target || target.isStage || !vm.renameSprite) return [];
             return [{label: text.title, action: () => openRenameDialog(target)}];
         },
-        createComponent: ({name}) => {
+        createComponent: ({name, id: componentId}) => {
             const element = document.createElement('div');
+            if (name === documentComponent) {
+                element.className = 'tw-plus-document-slot';
+                return {element, init({api}) {
+                    const item = documents.get(componentId);
+                    element.dataset.providerId = item.request.reference.providerId;
+                    element.dataset.documentId = item.request.reference.documentId;
+                    item.session = item.request.mount(element, () => api.close());
+                }};
+            }
             if (name === stagePanelId) {
                 element.className = 'tw-plus-dockview-stage-slot';
                 return {element, init() { stagePane.attach(element); }};
@@ -312,7 +327,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
             splitRight: () => { if (group.activePanel) split('right', group.activePanel.id); },
             splitBelow: () => { if (group.activePanel) split('below', group.activePanel.id); },
             close: () => { if (group.activePanel) closeSplit(group.activePanel.id); },
-            canClose: () => dockview.groups.length > 1,
+            canClose: () => canCloseGroup(group),
             canSplit: () => views.has(group.activePanel?.id)
         });
         return {...menu, init() {}};
@@ -444,8 +459,8 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
     }
 
     function show(panel: IDockviewPanel | undefined) {
-        if (panel?.id === stagePanelId) {
-            // Displaying the Stage does not select the Stage target or interrupt the sprite editor.
+        if (panel?.id === stagePanelId || documents.has(panel?.id)) {
+            // Utility panels do not change the VM editing target.
             refreshSurfaces();
             return;
         }
@@ -478,7 +493,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
 
     function add(target: Target, splitPosition?: {referencePanel: string; direction: SpriteSplitDirection}, section?: number) {
         let id = target.id;
-        if (splitPosition || views.has(id) || id === stagePanelId) {
+        if (splitPosition || views.has(id) || id === stagePanelId || documents.has(id)) {
             do {
                 id = 'sprite-view-' + ++nextView;
             } while (views.has(id) || vm.runtime.targets.some(item => item.id === id));
@@ -517,6 +532,46 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
         activateView(view?.id ?? add(target).id);
     }
 
+    function openDocument(request: DocumentPanelRequest) {
+        const {providerId, documentId} = request.reference;
+        for (const [id, {request: opened}] of documents) {
+            if (opened.reference.providerId === providerId && opened.reference.documentId === documentId) {
+                dockview.getPanel(id)?.api.setActive();
+                return;
+            }
+        }
+        let id: string;
+        do {
+            id = 'document-view-' + ++nextView;
+        } while (views.has(id) || documents.has(id) || vm.runtime.targets.some(target => target.id === id));
+        const title = request.filename + ' (' + providerId + ' / ' + documentId + ')';
+        documents.set(id, {request});
+        try {
+            dockview.addPanel({id, title, component: documentComponent, renderer: 'always'});
+        } catch (error) {
+            documents.get(id)?.session?.dispose();
+            documents.delete(id);
+            throw error;
+        }
+    }
+
+    function guardDocumentClose(event: MouseEvent | KeyboardEvent) {
+        const element = event.target as HTMLElement;
+        const tab = element.closest<HTMLElement>('[data-tab-panel-id]');
+        const item = documents.get(tab?.dataset.tabPanelId);
+        if (!item) return;
+        const close = event.type === 'click' ? Boolean(element.closest('.dv-default-tab-action')) :
+            event.target === tab && ['Delete', 'Backspace'].includes((event as KeyboardEvent).key);
+        if (!close) return;
+        event.preventDefault();
+        event.stopPropagation();
+        item.session?.requestClose();
+    }
+
+    function canCloseGroup(group: DockviewGroupPanel) {
+        return dockview.groups.length > 1 && group.panels.every(panel => !documents.has(panel.id));
+    }
+
     function openStage() {
         if (!stagePane) return;
         const existing = dockview.getPanel(stagePanelId);
@@ -544,7 +599,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
 
     function closeSplit(id = active?.id) {
         const panel = dockview.getPanel(id);
-        if (!multiView || !panel || dockview.groups.length <= 1) return false;
+        if (!multiView || !panel || !canCloseGroup(panel.api.group)) return false;
         syncing = true;
         try {
             dockview.removeGroup(panel.api.group);
@@ -628,6 +683,12 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
         }
     });
     const removal = dockview.onDidRemovePanel(panel => {
+        const item = documents.get(panel.id);
+        if (item) {
+            documents.delete(panel.id);
+            item.session?.dispose();
+            return;
+        }
         if (panel.id === stagePanelId) {
             stagePane?.attach(null);
             return;
@@ -639,6 +700,9 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
         if (![...views.values()].some(item => item.target === view.target)) closed.add(view.target);
     });
     const layout = multiView && dockview.onDidLayoutChange(refreshSurfaces);
+    const disconnectDocuments = multiView && getDocumentWorkspace(vm).connect(openDocument);
+    root.addEventListener('click', guardDocumentClose, true);
+    root.addEventListener('keydown', guardDocumentClose, true);
     vm.on('targetsUpdate', refresh);
     refresh();
     return {
@@ -651,6 +715,11 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
         currentView: () => active && describe(active),
         views: () => [...views.values()].map(view => describe(view)),
         dispose() {
+            if (disconnectDocuments) disconnectDocuments();
+            root.removeEventListener('click', guardDocumentClose, true);
+            root.removeEventListener('keydown', guardDocumentClose, true);
+            for (const item of documents.values()) item.session?.dispose();
+            documents.clear();
             stagePane?.attach(null);
             renameDialog?.remove();
             renameDialog = undefined;
