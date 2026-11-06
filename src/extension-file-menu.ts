@@ -25,7 +25,7 @@ export function renderExtensionFileMenu({locale = 'en', MenuSection, MenuItem, o
                 event.stopPropagation();
                 open();
             }
-        }, /^ja(?:-|$)/i.test(locale) ? '機能拡張を追加…' : 'Add an Extension…')));
+        }, /^ja(?:-|$)/i.test(locale) ? '機能拡張の追加' : 'Add Extension')));
 }
 
 const glyphs = {

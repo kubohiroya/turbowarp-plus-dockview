@@ -11,7 +11,7 @@ test('the extension command closes the File menu before opening the existing lib
     const section = renderExtensionFileMenu({...props, onAddExtension: () => calls.push('open')});
     const item = section.props.children;
     assert.equal(item.props.command, 'extension');
-    assert.equal(item.props.children.props.children, '機能拡張を追加…');
+    assert.equal(item.props.children.props.children, '機能拡張の追加');
     item.props.onClick();
     assert.deepEqual(calls, ['close', 'open']);
     calls.length = 0;

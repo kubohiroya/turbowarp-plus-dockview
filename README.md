@@ -44,6 +44,6 @@ Editor のルートから、`site/source.json` の GUI を `npm run build:pages`
 ファイルメニューの任意接続を備えた GUI を確認する場合は、同じコマンドに
 `TW_PLUS_LAYOUT_FILE_MENU_URL` を指定する。
 
-起動時の `twPlusDockviewSpriteTabs=1` は Plus 標準配置にスプライト編集タブを追加する。
-`twPlusExtensionFileMenu=1` は、ホストから拡張ライブラリのコールバックと項目識別子を受け取れる場合に
-ファイルメニューを切り替える。対応する起動パラメーターを外して再読み込みすると従来の表示に戻る。
+Plus 標準配置ではスプライト編集タブを既定で表示する。`twPlusDockviewSpriteTabs=0` で従来の編集表示に戻る。
+Editor がファイルメニューの接続口を提供している場合は、各項目のアイコンと「機能拡張の追加」を表示する。
+`twPlusExtensionFileMenu=0` で左下のボタンに戻る。起動時のパラメーターを変更したら再読み込みする。
