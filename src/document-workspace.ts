@@ -1,6 +1,7 @@
 export interface DocumentPanelRequest {
     reference: {providerId: string; documentId: string};
     filename: string;
+    transient?: boolean;
     mount(element: HTMLElement, close: () => void): {requestClose(): void; dispose(): void};
 }
 
