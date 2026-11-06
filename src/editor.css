@@ -191,6 +191,17 @@
     min-block-size: 0;
 }
 
+/* The native stage marker is shared by the editor, fullscreen and player entries. */
+:global([data-gui-stage]) {
+    --stage-toolbar-inset: 5.75rem;
+    --stage-overlay-z-index: 500;
+    --stage-overlay-gap: 0.5rem;
+}
+
+:global([data-gui-stage="fullscreen"]) {
+    --stage-toolbar-inset: 2.75rem;
+}
+
 .stage-frame:not([data-fullscreen]) {
     padding: 0 0.25rem 0.25rem;
     border: 1px solid var(--ui-black-transparent);
