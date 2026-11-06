@@ -71,7 +71,7 @@ export function stageDockActionLabel(locale: string, {drawer, detached, external
     external?: boolean;
 }) {
     const japanese = isJapanese(locale);
-    if (detached) return japanese ? 'ドックに戻す' : 'Dock stage';
+    if (detached) return japanese ? 'ステージをエディターに戻す' : 'Dock stage';
     if (external) return japanese ? (drawer ? 'ステージを別ウィンドウで開く' : '別ウィンドウで開く') : 'Open in a separate window';
     return japanese ? 'アンドック' : 'Undock stage';
 }
