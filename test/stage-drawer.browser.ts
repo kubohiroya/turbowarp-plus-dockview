@@ -42,7 +42,7 @@ test('the default stage opens from the right edge and docks back from a real Doc
             }
         });
 
-        const openItem = page.getByRole('menuitem', {name: '別窓で開く', exact: true});
+        const openItem = page.getByRole('menuitem', {name: 'ステージを別ウィンドウで開く', exact: true});
         await page.evaluate(() => {
             const original = window.open;
             window.open = () => {
