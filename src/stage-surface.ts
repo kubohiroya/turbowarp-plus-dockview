@@ -106,7 +106,8 @@ export function createStageSurface(React: typeof import('react'), {
         const dock = stageDrawer ? React.createElement(EdgeDrawer, {
             edge: 'right',
             label: japanese ? 'ステージを展開' : 'Reveal stage',
-            onOpenChange: setStageDrawerOpen
+            onOpenChange: setStageDrawerOpen,
+            portalContent: Boolean(placement)
         }, inline) : inline;
         return placement ? React.createElement(React.Fragment, null, dock, createPortal(panel, placement.surface)) : dock;
     };
