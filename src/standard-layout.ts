@@ -211,6 +211,19 @@ export function createStandardLayout(React, {styles, targetStyles, context, Layo
         return element(targets.SpriteGrid, {...props, query: useContext(targetSearch), standard: plusLayout});
     }
 
+    function SpriteListContent({children}) {
+        const {locale} = useContext(context);
+        const title = isJapanese(locale) ? 'スプライトを追加する' : /^en(?:-|$)/i.test(locale) ? 'Add a Sprite' : null;
+        const content = title ? React.Children.map(children, child => {
+            // The pinned GUI passes its add menu as a direct child of the list panel.
+            if (!React.isValidElement(child) || !child.props.className?.startsWith('sprite-selector_add-button_')) {
+                return child;
+            }
+            return React.cloneElement(child, {title});
+        }) : children;
+        return element('div', {className: styles.targetListContent}, content);
+    }
+
     function BackdropActions({compact, buttons, children}) {
         const {plusLayout, locale} = useContext(context);
         if (!plusLayout && !compact) return children;
@@ -280,5 +293,5 @@ export function createStandardLayout(React, {styles, targetStyles, context, Layo
         };
     }
 
-    return {StandardLayout, EdgeDrawer, TargetLayout, useSpriteListTools, TargetSearchProvider: targetSearch.Provider, SpriteGrid, BackdropTile: targets.BackdropTile, BackdropActions, SpritePropertiesSection};
+    return {StandardLayout, EdgeDrawer, TargetLayout, useSpriteListTools, TargetSearchProvider: targetSearch.Provider, SpriteGrid, SpriteListContent, BackdropTile: targets.BackdropTile, BackdropActions, SpritePropertiesSection};
 }
