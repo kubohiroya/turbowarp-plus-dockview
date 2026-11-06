@@ -596,3 +596,17 @@ details.layout-menu button {
     height: 100%;
     min-height: 0;
 }
+
+/* The native tab panel shells remain mounted for the host's tab selection. */
+:global([class*="gui_tabs_"]):has(> .sprite-tabs) > :global([role="tabpanel"]) {
+    display: none;
+}
+
+.sprite-tabs :global(.tw-plus-sprite-tab-sections),
+.sprite-tabs :global(.tw-plus-sprite-tab-section:not([hidden])) {
+    display: flex;
+    flex: 1;
+    position: relative;
+    min-height: 0;
+    min-width: 0;
+}

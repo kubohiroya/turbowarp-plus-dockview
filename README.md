@@ -35,3 +35,15 @@ Editor のルートから、`site/source.json` の GUI を `npm run build:pages`
 `sprite-properties` は設定フォーム、一覧のスタイル、選択が変わった場合の編集拒否と VM への更新を担当する。ホストは選択中の値、VM、従来フォームと表示先を渡す。
 
 設定フォームは以前のスプライト設定ソース `80825f7`、ウィンドウ部品は以前の配布アーカイブのソース `b0390c3` から移設した。Scratch GUI の本家実装はこのパッケージに取り込まず、パッケージの既存ライセンスは GPL-3.0-or-later とする。
+
+## Editor と組み合わせたローカル検証
+
+`npm test` でタブの状態管理、ファイルメニューの操作、既存レイアウトを検証する。
+`TW_PLUS_LAYOUT_EDITOR_URL` に、固定済み Scratch GUI と組み合わせた Editor の URL を指定して
+`npm run test:browser` を実行すると、既存のタブ列・編集パネル接続で Dockview を検証する。
+ファイルメニューの任意接続を備えた GUI を確認する場合は、同じコマンドに
+`TW_PLUS_LAYOUT_FILE_MENU_URL` を指定する。
+
+起動時の `twPlusDockviewSpriteTabs=1` は Plus 標準配置にスプライト編集タブを追加する。
+`twPlusExtensionFileMenu=1` は、ホストから拡張ライブラリのコールバックと項目識別子を受け取れる場合に
+ファイルメニューを切り替える。対応する起動パラメーターを外して再読み込みすると従来の表示に戻る。
