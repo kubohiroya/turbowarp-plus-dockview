@@ -256,6 +256,31 @@
     z-index: 2;
 }
 
+.target-list-content > :global([class*="sprite-selector_add-button_"]) > :global(.__react_component_tooltip) {
+    display: none;
+}
+
+.target-list-content > :global([class*="sprite-selector_add-button_"]) > :global([class*="action-menu_main-button_"]):is(:hover, :focus-visible)::after {
+    content: attr(aria-label);
+    position: absolute;
+    inset-inline-end: calc(100% + 0.5rem);
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    white-space: nowrap;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid var(--ui-black-transparent);
+    border-radius: 0.25rem;
+    background: var(--ui-primary);
+    color: var(--text-primary);
+    box-shadow: 0 0.125rem 0.5rem var(--ui-black-transparent);
+}
+
+.standard-targets .target-list-content > :global([class*="sprite-selector_add-button_"]) > :global([class*="action-menu_main-button_"])::after {
+    inset-inline-start: calc(100% + 0.5rem);
+    inset-inline-end: auto;
+}
+
 .external-panel {
     display: flex;
     flex-direction: column;
