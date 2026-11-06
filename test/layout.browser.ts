@@ -10,6 +10,7 @@ const require = createRequire(import.meta.url);
 const origin = 'http://layout.test';
 const example = '/example/index.html';
 const files = new Map([[example, fileURLToPath(new URL('../example/index.html', import.meta.url))]]);
+files.set('/example/.build/layout.js', fileURLToPath(new URL('../example/.build/layout.js', import.meta.url)));
 const source = fileURLToPath(new URL('../src/', import.meta.url));
 for (const entry of await readdir(source, {withFileTypes: true})) {
     if (entry.isFile() && /\.css$/.test(entry.name)) {

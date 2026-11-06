@@ -18,7 +18,12 @@
     <div id="panel"></div>
     <script src="/react.umd.js"></script>
     <script src="/react-dom.umd.js"></script>
-    <script type="importmap">{"imports": {"react": "/react.js"}}</script>
-    <script type="module" src="/example/sprite-properties.js"></script>
+    <script type="importmap">{
+        "imports": {
+            "react": "/react.js",
+            "@kubohiroya/turbowarp-plus-editor-layout/sprite-properties": "../dist/sprite-properties.js"
+        }
+    }</script>
+    <script type="module" src="./.build/sprite-properties.js"></script>
 </body>
 </html>
