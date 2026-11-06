@@ -18,7 +18,7 @@ export function createStandardLayout(React, {styles, targetStyles, context, Layo
         onPaletteModeChange, windowTools, Container, render, ...props
     }) {
         const [showUndock, setShowUndock] = useState(false);
-        const [targetsPinned, setTargetsPinned] = useState(false);
+        const [targetsPinned, setTargetsPinned] = useState(true);
         const [showStage, setShowStage] = useState(true);
         const [stageDrawerOpen, setStageDrawerOpen] = useState(false);
         const [size, setSize] = useState(null);
@@ -151,7 +151,7 @@ export function createStandardLayout(React, {styles, targetStyles, context, Layo
             Container ? element(Container, {locale: props.locale}, layout) : layout);
     }
 
-    function EdgeDrawer({edge, label, pinned = false, onOpenChange, portalContent = false, holdOpenSelector, children}) {
+    function EdgeDrawer({edge, label, pinned = false, onOpenChange, portalContent = false, holdOpenSelector = '', children}) {
         const [hovered, setHovered] = useState(false);
         const [engaged, setEngaged] = useState(false);
         const [heldOpen, setHeldOpen] = useState(false);
