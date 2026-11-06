@@ -7,6 +7,9 @@ import {SpriteAssetPane} from './sprite-asset-pane.tsx';
 import type {SpriteVariable} from './sprite-asset-pane.tsx';
 import {SpriteEditorToolbar, spriteEditorSections} from './sprite-editor-toolbar.tsx';
 import type {SpriteSearchResult} from './sprite-editor-toolbar.tsx';
+import type {DockviewStagePane} from './dockview-stage.ts';
+
+export {useDockviewStage} from './dockview-stage.ts';
 
 interface CostumeAsset {
     encodeDataURI(): string;
@@ -111,6 +114,8 @@ function createAssetSelections(target: Target, source?: {
 
 export type SpriteSplitDirection = 'right' | 'below';
 
+const stagePanelId = 'tw-plus-stage-display';
+
 interface TabOptions<Snapshot = unknown> {
     vm: Project;
     getSection(): number;
@@ -119,6 +124,7 @@ interface TabOptions<Snapshot = unknown> {
     resize(): void;
     reopenLabel: string;
     multiView?: boolean;
+    stagePane?: DockviewStagePane;
     variables?: boolean;
     locale?: string;
     viewAdapter?: SpriteTabAdapter<Snapshot>;
@@ -198,6 +204,7 @@ class SpriteTab extends DefaultTab {
 export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElement, options: TabOptions<Snapshot>) {
     const {vm, multiView = false, locale = 'en'} = options;
     const viewAdapter = multiView ? options.viewAdapter : undefined;
+    const stagePane = multiView ? options.stagePane : undefined;
     const usesNativeSection = (section: number) => section !== variableSection || !options.variables;
     const document = root.ownerDocument;
     const editLabel = /^ja(?:-|$)/i.test(locale) ? 'クリックしてこのビューで編集' : 'Activate this view to edit';
@@ -225,8 +232,12 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
             if (!target || target.isStage || !vm.renameSprite) return [];
             return [{label: text.title, action: () => openRenameDialog(target)}];
         },
-        createComponent: () => {
+        createComponent: ({name}) => {
             const element = document.createElement('div');
+            if (name === stagePanelId) {
+                element.className = 'tw-plus-dockview-stage-slot';
+                return {element, init() { stagePane.attach(element); }};
+            }
             element.className = 'tw-plus-sprite-tab-slot';
             const body = multiView ? document.createElement('div') : element;
             const toolbar = multiView && options.onToolbarSlots ? document.createElement('div') : undefined;
@@ -301,7 +312,8 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
             splitRight: () => { if (group.activePanel) split('right', group.activePanel.id); },
             splitBelow: () => { if (group.activePanel) split('below', group.activePanel.id); },
             close: () => { if (group.activePanel) closeSplit(group.activePanel.id); },
-            canClose: () => dockview.groups.length > 1
+            canClose: () => dockview.groups.length > 1,
+            canSplit: () => views.has(group.activePanel?.id)
         });
         return {...menu, init() {}};
     }
@@ -432,6 +444,11 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
     }
 
     function show(panel: IDockviewPanel | undefined) {
+        if (panel?.id === stagePanelId) {
+            // Displaying the Stage does not select the Stage target or interrupt the sprite editor.
+            refreshSurfaces();
+            return;
+        }
         const next = views.get(panel?.id);
         if (active === next) {
             refreshSurfaces();
@@ -461,7 +478,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
 
     function add(target: Target, splitPosition?: {referencePanel: string; direction: SpriteSplitDirection}, section?: number) {
         let id = target.id;
-        if (splitPosition || views.has(id)) {
+        if (splitPosition || views.has(id) || id === stagePanelId) {
             do {
                 id = 'sprite-view-' + ++nextView;
             } while (views.has(id) || vm.runtime.targets.some(item => item.id === id));
@@ -498,6 +515,22 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
         const view = recent && views.get(recent.id) === recent ? recent :
             [...views.values()].find(item => item.target === target);
         activateView(view?.id ?? add(target).id);
+    }
+
+    function openStage() {
+        if (!stagePane) return;
+        const existing = dockview.getPanel(stagePanelId);
+        if (existing) {
+            existing.api.setActive();
+            return;
+        }
+        const reference = dockview.activePanel;
+        dockview.addPanel({id: stagePanelId, title: stagePane.title, component: stagePanelId, renderer: 'always',
+            position: reference ? {referencePanel: reference.id, direction: 'right'} : undefined});
+    }
+
+    function closeStage() {
+        dockview.getPanel(stagePanelId)?.api.close();
     }
 
     function split(direction: SpriteSplitDirection, id = active?.id) {
@@ -595,6 +628,10 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
         }
     });
     const removal = dockview.onDidRemovePanel(panel => {
+        if (panel.id === stagePanelId) {
+            stagePane?.attach(null);
+            return;
+        }
         const view = views.get(panel.id);
         if (!view) return;
         if (view === active) remembered.set(view.target, usesNativeSection(view.section) ? options.getSection() : view.section);
@@ -605,7 +642,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
     vm.on('targetsUpdate', refresh);
     refresh();
     return {
-        select, split, closeSplit, activateView, setViewSection, syncActiveSection, refreshSurfaces,
+        select, openStage, closeStage, split, closeSplit, activateView, setViewSection, syncActiveSection, refreshSurfaces,
         selectAsset(id: string, kind: AssetKind, index: number) {
             if (active?.id === id && active.section === (kind === 'costumes' ? 1 : 2)) {
                 active.assets.selectors.get(kind)?.(index);
@@ -614,6 +651,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
         currentView: () => active && describe(active),
         views: () => [...views.values()].map(view => describe(view)),
         dispose() {
+            stagePane?.attach(null);
             renameDialog?.remove();
             renameDialog = undefined;
             vm.removeListener('targetsUpdate', refresh);
@@ -746,6 +784,7 @@ function SpriteTabs<Snapshot>(props: SpriteTabsProps<Snapshot>) {
             resize: () => latest.current.resize(),
             reopenLabel: props.reopenLabel,
             multiView: props.multiView,
+            stagePane: props.stagePane,
             variables: hasVariables,
             locale: props.locale,
             viewAdapter: props.viewAdapter,
@@ -754,14 +793,16 @@ function SpriteTabs<Snapshot>(props: SpriteTabsProps<Snapshot>) {
         });
         controller.current = instance;
         latest.current.connect(instance);
+        if (props.multiView) props.stagePane?.connect({open: instance.openStage, close: instance.closeStage});
         return () => {
             frame.cancelAnimationFrame(restoreFrame);
             controller.current = null;
             latest.current.connect(null);
+            props.stagePane?.connect(null);
             instance.dispose();
         };
     }, [content, props.enabled, props.vm, props.reopenLabel, props.multiView, props.locale,
-        props.viewAdapter, props.renameLabels, hasVariables, hasToolbar, hasAssetPreview]);
+        props.viewAdapter, props.stagePane, props.renameLabels, hasVariables, hasToolbar, hasAssetPreview]);
     React.useLayoutEffect(() => {
         controller.current?.syncActiveSection(props.activeSection);
     }, [props.activeSection]);
