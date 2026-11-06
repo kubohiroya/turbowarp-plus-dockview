@@ -313,6 +313,15 @@
     padding-left: 0.5rem;
 }
 
+:global([data-horizontal-block-palette]) {
+    left: 0 !important;
+}
+
+:global([class*="gui_blocks-wrapper_"]):has(+ :global([class*="gui_extension-button-container_"]))
+    :global([data-horizontal-block-palette]) {
+    left: calc(var(--plus-extension-button-width, 3.75rem) + var(--plus-extension-button-gap, 0px)) !important;
+}
+
 .standard-body .tab-row {
     padding-right: var(--plus-stage-tab-inset, 0px);
 }
@@ -366,30 +375,28 @@ details.layout-menu button {
 }
 
 .sprite-properties {
+    display: flex;
+    flex-direction: column;
     max-block-size: 50%;
-    overflow: auto;
     background: var(--ui-secondary);
     color: var(--text-primary);
 }
 
-.sprite-properties summary {
+.sprite-properties-toggle {
+    flex: none;
     padding: 0.35rem 0.5rem;
-    cursor: pointer;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
     font-size: 0.875rem;
-    white-space: nowrap;
+    text-align: start;
+    cursor: pointer;
 }
 
-.codePreview {
-    position: relative;
-    inline-size: 100%;
-    block-size: 100%;
-    overflow: hidden;
-}
-
-.codePreview > div {
-    inline-size: 100%;
-    block-size: 100%;
-    pointer-events: none;
+.sprite-properties-content {
+    min-block-size: 0;
+    overflow: auto;
 }
 
 :global(.injectionDiv):has([data-plus-horizontal-zoom]) :global(.sa-custom-zoom-area) {
@@ -505,6 +512,7 @@ details.layout-menu button {
 }
 
 .target-list-panel .open-window-action,
+.target-list-tools .open-window-action,
 .edge-panel .backpack-panel .open-window-action {
     opacity: 1;
     pointer-events: auto;
@@ -565,12 +573,6 @@ details.layout-menu button {
     opacity: 1;
 }
 
-:global([class*="gui_blocks-wrapper_"]):not(:has(+ :global([class*="gui_extension-button-container_"])))
-    :global(.blocklyToolboxDiv)[data-horizontal-block-palette] {
-    --plus-extension-button-width: 0px;
-    --plus-extension-button-gap: 0px;
-}
-
 .sprite-tabs {
     display: flex;
     flex: 1 1 0;
@@ -595,4 +597,18 @@ details.layout-menu button {
     width: 100%;
     height: 100%;
     min-height: 0;
+}
+
+/* The native tab panel shells remain mounted for the host's tab selection. */
+:global([class*="gui_tabs_"]):has(> .sprite-tabs) > :global([role="tabpanel"]) {
+    display: none;
+}
+
+.sprite-tabs :global(.tw-plus-sprite-tab-sections),
+.sprite-tabs :global(.tw-plus-sprite-tab-section:not([hidden])) {
+    display: flex;
+    flex: 1;
+    position: relative;
+    min-height: 0;
+    min-width: 0;
 }

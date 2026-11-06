@@ -1,0 +1,96 @@
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {chromium, expect} from '@playwright/test';
+
+const pinned = process.env.TW_PLUS_LAYOUT_EDITOR_URL;
+const fileMenuPreview = process.env.TW_PLUS_LAYOUT_FILE_MENU_URL || pinned;
+
+function withFlags(base: string, flags: Record<string, string>) {
+    const url = new URL(base);
+    for (const [key, value] of Object.entries({lang: 'ja', ...flags})) url.searchParams.set(key, value);
+    return url.href;
+}
+
+test('the pinned GUI uses its existing editor slots for Dockview sprite tabs',
+    {skip: !pinned, timeout: 45_000}, async t => {
+        const browser = await chromium.launch({args: ['--enable-unsafe-swiftshader']});
+        t.after(() => browser.close());
+        const page = await browser.newPage({viewport: {width: 1360, height: 900}});
+        const dockviewTabs = page.locator('.dv-tab');
+        const extensionButton = page.locator('button[class*="gui_extension-button_"]');
+
+        await page.goto(withFlags(pinned, {twPlusDockviewSpriteTabs: '0', twPlusExtensionFileMenu: '0'}));
+        await expect(extensionButton).toBeVisible();
+        await expect(dockviewTabs).toHaveCount(0);
+        await page.goto(withFlags(pinned, {}));
+        await page.waitForFunction(() => window.vm?.editingTarget?.isOriginal && window.ScratchBlocks?.getMainWorkspace());
+        await expect(extensionButton).toHaveCount(0);
+        const [first, second] = await page.evaluate(async () => {
+            const {vm, ScratchBlocks} = window;
+            const first = vm.editingTarget.id;
+            vm.renameSprite(first, 'ダンゴ');
+            await vm.duplicateSprite(first);
+            const second = vm.editingTarget.id;
+            vm.renameSprite(second, 'ミント');
+            vm.setEditingTarget(first);
+            ScratchBlocks.getMainWorkspace().getInjectionDiv().dataset.spriteTabsWorkspace = 'original';
+            return [first, second];
+        });
+        const firstTab = dockviewTabs.filter({hasText: 'ダンゴ'});
+        const secondTab = dockviewTabs.filter({hasText: 'ミント'});
+        await expect(firstTab).toBeVisible();
+        await expect(secondTab).toBeVisible();
+        const secondBounds = await secondTab.boundingBox();
+        await firstTab.dragTo(secondTab, {targetPosition: {x: secondBounds.width - 5, y: secondBounds.height / 2}});
+        await expect(dockviewTabs).toHaveText(['ミント', 'ダンゴ']);
+        await firstTab.click();
+        await expect.poll(() => page.evaluate(() => window.vm.editingTarget.id)).toBe(first);
+
+        const editor = page.locator('.dv-content-container');
+        const costumes = editor.getByRole('tab', {name: 'コスチューム', exact: true});
+        const code = editor.getByRole('tab', {name: 'コード', exact: true});
+        await costumes.click();
+        await expect(costumes).toHaveAttribute('aria-selected', 'true');
+        await secondTab.click();
+        await expect.poll(() => page.evaluate(() => window.vm.editingTarget.id)).toBe(second);
+        await code.click();
+        await firstTab.click();
+        await expect.poll(() => page.evaluate(() => window.vm.editingTarget.id)).toBe(first);
+        await expect(costumes).toHaveAttribute('aria-selected', 'true');
+        await code.click();
+        await expect(editor.locator('.blocklySvg').first()).toBeVisible();
+        assert.equal(await page.evaluate(() => window.ScratchBlocks.getMainWorkspace().getInjectionDiv()
+            .dataset.spriteTabsWorkspace), 'original');
+        await firstTab.locator('.dv-default-tab-action').click();
+        await expect(firstTab).toHaveCount(0);
+        await expect.poll(() => page.evaluate(() => window.vm.editingTarget.id)).toBe(second);
+        await page.getByRole('button', {name: 'スプライト一覧を展開', exact: true}).click();
+        await page.getByText('ダンゴ', {exact: true}).first().click();
+        await expect(firstTab).toBeVisible();
+    });
+
+test('the pinned GUI File menu moves the extension command and decorates stock entries',
+    {skip: !fileMenuPreview, timeout: 30_000}, async t => {
+        const browser = await chromium.launch({args: ['--enable-unsafe-swiftshader']});
+        t.after(() => browser.close());
+        const page = await browser.newPage({viewport: {width: 1360, height: 900}});
+        const extensionButton = page.locator('button[class*="gui_extension-button_"]');
+        const file = page.getByText('ファイル', {exact: true}).first();
+        const add = page.getByText('機能拡張の追加', {exact: true});
+
+        await page.goto(withFlags(fileMenuPreview, {twPlusExtensionFileMenu: '0'}));
+        await expect(extensionButton).toBeVisible();
+        await file.click();
+        await expect(add).toHaveCount(0);
+        await expect(page.locator('[data-file-menu-icon]')).toHaveCount(0);
+
+        await page.goto(withFlags(fileMenuPreview, {}));
+        await expect(extensionButton).toHaveCount(0);
+        await expect(page.locator('.dv-tab').first()).toBeVisible();
+        await file.click();
+        const openMenu = add.locator('xpath=ancestor::ul[1]');
+        await expect(openMenu.locator('li:not(:has([data-file-menu-icon]))')).toHaveCount(0);
+        await expect(openMenu.locator('[data-file-menu-icon="extension"]')).toBeVisible();
+        await add.press('Enter');
+        await expect(page.getByText('機能拡張を作品に追加する', {exact: true}).first()).toBeVisible();
+    });
