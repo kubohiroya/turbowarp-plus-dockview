@@ -107,7 +107,8 @@ export function createStageSurface(React: typeof import('react'), {
             edge: 'right',
             label: japanese ? 'ステージを展開' : 'Reveal stage',
             onOpenChange: setStageDrawerOpen,
-            portalContent: Boolean(placement)
+            portalContent: Boolean(placement),
+            holdOpenSelector: '[data-turbowarp-app-shell-source-chooser][role="dialog"][aria-modal="true"]'
         }, inline) : inline;
         return placement ? React.createElement(React.Fragment, null, dock, createPortal(panel, placement.surface)) : dock;
     };

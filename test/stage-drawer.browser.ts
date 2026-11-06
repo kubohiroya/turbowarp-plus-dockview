@@ -8,6 +8,47 @@ const displayMenu = (page: Page) => page.getByRole('button', {name: 'ステー�
 const frame = (page: Page) => page.locator('[data-plus-stage-frame]');
 const canvas = (page: Page) => frame(page).locator('[data-gui-stage] canvas').first();
 
+test('the stage drawer stays open during source selection and releases when the chooser closes',
+    {skip: !preview, timeout: 20_000}, async t => {
+        const browser = await chromium.launch({args: ['--enable-unsafe-swiftshader']});
+        t.after(() => browser.close());
+        const page = await browser.newPage({viewport: {width: 1360, height: 900}});
+        const url = new URL(preview);
+        url.searchParams.set('lang', 'en');
+        await page.goto(url.href);
+
+        const drawer = page.getByRole('button', {name: 'Reveal stage', exact: true});
+        const title = page.getByRole('textbox', {name: 'Project title here'});
+        const chooser = page.locator('[data-turbowarp-app-shell-source-chooser]');
+        for (const close of ['hide', 'remove']) {
+            await drawer.click();
+            await expect(canvas(page)).toBeVisible();
+            await canvas(page).evaluate(element => {
+                const dialog = document.createElement('section');
+                dialog.setAttribute('data-turbowarp-app-shell-source-chooser', 'true');
+                dialog.setAttribute('role', 'dialog');
+                dialog.setAttribute('aria-modal', 'true');
+                dialog.textContent = 'Choose a source';
+                element.parentElement.appendChild(dialog);
+            });
+            await title.focus();
+            await page.mouse.move(500, 400);
+            await expect(drawer).toHaveAttribute('aria-expanded', 'true');
+            await expect(chooser).toBeVisible();
+            await chooser.evaluate((element: HTMLElement, action) => {
+                if (action === 'hide') element.style.display = 'none';
+                else element.remove();
+            }, close);
+            await expect(drawer).toHaveAttribute('aria-expanded', 'false');
+            await expect(canvas(page)).toBeHidden();
+            if (close === 'hide') await chooser.evaluate(element => element.remove());
+        }
+        await drawer.hover();
+        await expect(canvas(page)).toBeVisible();
+        await page.mouse.move(500, 400);
+        await expect(canvas(page)).toBeHidden();
+    });
+
 test('the default stage opens from the right edge and docks back from a real Dockview popup',
     {skip: !preview, timeout: 45_000}, async t => {
         const browser = await chromium.launch({args: ['--enable-unsafe-swiftshader']});
