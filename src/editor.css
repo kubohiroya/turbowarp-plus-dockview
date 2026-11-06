@@ -591,6 +591,31 @@ details.layout-menu button {
     height: 100%;
 }
 
+.sprite-tabs :global(.tw-plus-sprite-tab-icon) {
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    margin-inline-end: 0.375rem;
+    object-fit: contain;
+}
+
+.sprite-tabs :global(.tw-plus-sprite-rename) {
+    border: 1px solid var(--ui-black-transparent);
+    border-radius: 0.5rem;
+    background: var(--ui-white);
+    color: var(--text-primary);
+}
+
+.sprite-tabs :global(.tw-plus-sprite-rename) form {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.sprite-tabs :global(.tw-plus-sprite-rename) form > div {
+    display: flex;
+    gap: 0.5rem;
+}
+
 .sprite-tabs :global(.tw-plus-sprite-tab-editor) {
     display: flex;
     flex-direction: column;

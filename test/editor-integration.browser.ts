@@ -37,12 +37,35 @@ test('the pinned GUI uses its existing editor slots for Dockview sprite tabs',
             return [first, second];
         });
         const firstTab = dockviewTabs.filter({hasText: 'ダンゴ'});
-        const secondTab = dockviewTabs.filter({hasText: 'ミント'});
+        const originalSecondTab = dockviewTabs.filter({hasText: 'ミント'});
         await expect(firstTab).toBeVisible();
-        await expect(secondTab).toBeVisible();
+        await expect(originalSecondTab).toBeVisible();
+
+        const rename = page.getByRole('menuitem', {name: 'スプライト名の変更'});
+        const renameDialog = page.getByRole('dialog', {name: 'スプライト名の変更'});
+        const name = renameDialog.getByRole('textbox', {name: 'スプライト名'});
+        await originalSecondTab.getByText('ミント', {exact: true}).click({button: 'right'});
+        await rename.click();
+        await expect(name).toHaveValue('ミント');
+        await renameDialog.getByRole('button', {name: 'キャンセル'}).click();
+        await expect(originalSecondTab).toBeVisible();
+
+        const icon = originalSecondTab.locator('.tw-plus-sprite-tab-icon');
+        await expect(icon).toBeVisible();
+        await icon.click({button: 'right'});
+        await rename.click();
+        await expect(name).toBeFocused();
+        await name.fill('ライム');
+        await name.press('Enter');
+        await expect(renameDialog).toHaveCount(0);
+        await expect.poll(() => page.evaluate(id => window.vm.runtime.getTargetById(id).getName(), second)).toBe('ライム');
+        await expect.poll(() => page.evaluate(() => window.vm.editingTarget.id)).toBe(first);
+        await expect(originalSecondTab).toHaveCount(0);
+
+        const secondTab = dockviewTabs.filter({hasText: 'ライム'});
         const secondBounds = await secondTab.boundingBox();
         await firstTab.dragTo(secondTab, {targetPosition: {x: secondBounds.width - 5, y: secondBounds.height / 2}});
-        await expect(dockviewTabs).toHaveText(['ミント', 'ダンゴ']);
+        await expect(dockviewTabs).toHaveText(['ライム', 'ダンゴ']);
         await firstTab.click();
         await expect.poll(() => page.evaluate(() => window.vm.editingTarget.id)).toBe(first);
 
@@ -67,6 +90,14 @@ test('the pinned GUI uses its existing editor slots for Dockview sprite tabs',
         await page.getByRole('button', {name: 'スプライト一覧を展開', exact: true}).click();
         await page.getByText('ダンゴ', {exact: true}).first().click();
         await expect(firstTab).toBeVisible();
+
+        const stageName = await page.evaluate(() => {
+            const stage = window.vm.runtime.getTargetForStage();
+            window.vm.setEditingTarget(stage.id);
+            return stage.getName();
+        });
+        await dockviewTabs.getByText(stageName, {exact: true}).click({button: 'right'});
+        await expect(rename).toHaveCount(0);
     });
 
 test('the pinned GUI File menu moves the extension command and decorates stock entries',
