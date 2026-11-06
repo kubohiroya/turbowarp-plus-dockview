@@ -1,0 +1,108 @@
+.tw-plus-sprite-toolbar {
+    --tw-plus-toolbar-height: 28px;
+    --tw-plus-toolbar-radius: 999px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    padding: 6px;
+    color: var(--text-primary, #2c3650);
+    background: var(--dv-activegroup-visiblepanel-tab-background-color, var(--ui-white, #fff));
+    border-block-end: 1px solid var(--ui-black-transparent, #d5dbe3);
+}
+
+.tw-plus-sprite-toolbar[data-active-group="false"] {
+    background: var(--dv-inactivegroup-visiblepanel-tab-background-color, var(--ui-tertiary, #e8ecf5));
+}
+
+.tw-plus-sprite-toolbar-sections {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-width: 0;
+}
+
+.tw-plus-sprite-toolbar-sections button,
+.tw-plus-sprite-search input {
+    box-sizing: border-box;
+    min-height: var(--tw-plus-toolbar-height);
+    border: 1px solid var(--ui-black-transparent, #c6cfda);
+    border-radius: var(--tw-plus-toolbar-radius);
+    color: inherit;
+    font: inherit;
+}
+
+.tw-plus-sprite-toolbar-sections button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    background: var(--ui-secondary, #edf0f7);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.tw-plus-sprite-toolbar-sections button:hover { background: var(--ui-tertiary, #dce4f1); }
+.tw-plus-sprite-toolbar-sections button[aria-selected="true"] {
+    border-color: var(--looks-secondary-dark, #6747a8);
+    background: var(--looks-secondary-dark, #6747a8);
+    color: #fff;
+}
+
+.tw-plus-sprite-toolbar-sections button:focus-visible,
+.tw-plus-sprite-search input:focus-visible {
+    outline: 2px solid var(--looks-secondary, #855cd6);
+    outline-offset: 1px;
+}
+
+.tw-plus-sprite-toolbar svg { width: 16px; height: 16px; flex: none; }
+
+.tw-plus-sprite-search {
+    position: relative;
+    flex: 0 1 132px;
+    min-width: 0;
+    margin-inline-start: auto;
+}
+
+.tw-plus-sprite-search-field { position: relative; }
+.tw-plus-sprite-search-field svg {
+    position: absolute;
+    inset-inline-start: 8px;
+    inset-block-start: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.tw-plus-sprite-search input {
+    display: block;
+    width: 100%;
+    padding-inline: 28px 8px;
+    background: var(--input-background, var(--ui-white, #fff));
+    color-scheme: var(--color-scheme, light);
+    font-size: 12px;
+}
+
+.tw-plus-sprite-search input::placeholder { color: inherit; opacity: 0.75; }
+
+.tw-plus-sprite-search ul {
+    position: absolute;
+    z-index: 5;
+    inset-inline-end: 0;
+    inset-block-start: 100%;
+    width: max(100%, 12rem);
+    max-width: calc(100cqw - 12px);
+    max-height: min(250px, 40vh);
+    margin: 4px 0 0;
+    padding: 4px;
+    overflow: auto;
+    border: 1px solid var(--ui-black-transparent, #c6cfda);
+    border-radius: 6px;
+    background: var(--popover-background, var(--ui-white, #fff));
+    box-shadow: 0 4px 12px #0003;
+    list-style: none;
+}
+
+.tw-plus-sprite-search li { padding: 4px 6px; overflow-wrap: anywhere; cursor: pointer; }
+.tw-plus-sprite-search li:hover,
+.tw-plus-sprite-search li[aria-selected="true"] { background: var(--looks-light-transparent, #e6dff3); }

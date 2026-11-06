@@ -38,7 +38,7 @@ async function openExample(t) {
         if (!filename) return route.fulfill({status: 404});
         return route.fulfill({
             body: await readFile(filename),
-            contentType: pathname === example ? 'text/html' : pathname.endsWith('.css') ? 'text/css' : 'application/javascript'
+            contentType: pathname.endsWith('.html') ? 'text/html' : pathname.endsWith('.css') ? 'text/css' : 'application/javascript'
         });
     });
     return page;
@@ -96,4 +96,68 @@ test('the standalone package uses its configured layout', {timeout: 30_000}, asy
     await expect(stage).toBeVisible();
     await expect(stage).not.toHaveCSS('position', 'absolute');
     await expect(anchor).toHaveCount(0);
+});
+
+test('the sprite toolbar selects one section and searches in the active section', {timeout: 30_000}, async t => {
+    const toolbar = '/example/sprite-editor-toolbar.html';
+    files.set(toolbar, fileURLToPath(new URL('../example/sprite-editor-toolbar.html', import.meta.url)));
+    const page = await openExample(t);
+    await page.route(origin + '/example/react.js', route => route.fulfill({
+        contentType: 'application/javascript',
+        body: 'export default window.React;'
+    }));
+    await page.goto(origin + toolbar);
+    const selected = page.getByRole('tab', {selected: true});
+    await expect(page.getByRole('tab')).toHaveCount(4);
+    await expect(selected).toHaveText('コード');
+    await selected.press('ArrowRight');
+    await expect(selected).toHaveText('コスチューム');
+    await expect(selected).toHaveCount(1);
+    const search = page.getByRole('combobox');
+    await expect(search).toHaveAttribute('placeholder', '検索');
+    await search.fill('block');
+    await expect(page.getByRole('option')).toHaveCount(2);
+    await search.press('ArrowUp');
+    await expect(page.getByRole('option', {selected: true})).toHaveText('Second block');
+    await search.press('Enter');
+    await expect(page.getByRole('tabpanel')).toHaveText('costumes: Second block');
+    await expect(page.getByRole('listbox')).toHaveCount(0);
+
+    await page.getByRole('button', {name: 'English'}).click();
+    await expect(search).toHaveAttribute('placeholder', 'Search');
+    await expect(selected).toHaveText('Costumes');
+    await page.evaluate(() => {
+        document.documentElement.style.setProperty('--dv-activegroup-visiblepanel-tab-background-color', 'rgb(32, 36, 44)');
+        document.documentElement.style.setProperty('--input-background', 'rgb(46, 52, 64)');
+    });
+    await expect(page.locator('.tw-plus-sprite-toolbar')).toHaveCSS('background-color', 'rgb(32, 36, 44)');
+    await expect(search).toHaveCSS('background-color', 'rgb(46, 52, 64)');
+});
+
+
+test('the sprite layout menu opens above a clipped tab strip and supports keyboard commands', {timeout: 30_000}, async t => {
+    const toolbar = '/example/sprite-editor-toolbar.html';
+    files.set(toolbar, fileURLToPath(new URL('../example/sprite-editor-toolbar.html', import.meta.url)));
+    const page = await openExample(t);
+    await page.route(origin + '/example/react.js', route => route.fulfill({
+        contentType: 'application/javascript',
+        body: 'export default window.React;'
+    }));
+    await page.goto(origin + toolbar);
+    const trigger = page.getByRole('button', {name: 'Editor panel layout'});
+    await trigger.press('ArrowDown');
+    await expect(page.getByRole('menuitem', {name: 'Close this split'})).toBeDisabled();
+    await expect(page.getByRole('menuitem', {name: 'Split right'})).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#command')).toHaveText('below');
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await expect(page.getByRole('menuitem', {name: 'Close this split'})).toBeEnabled();
+    await page.getByRole('menuitem', {name: 'Close this split'}).click();
+    await expect(page.locator('#command')).toHaveText('closed');
+    await trigger.click();
+    await page.keyboard.press('Escape');
+    await expect(trigger).toBeFocused();
+    await expect(page.getByRole('menu')).toHaveCount(0);
 });
