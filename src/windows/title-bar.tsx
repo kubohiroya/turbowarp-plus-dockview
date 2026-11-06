@@ -1,6 +1,20 @@
-import React from 'react';
+import React, {type ReactNode} from 'react';
 
-export function WindowTitleBar({title, target, titleContent, children, windowControls, presentation = 'internal'}) {
+export interface WindowTitleBarProps {
+    title: string;
+    target?: ReactNode;
+    titleContent?: ReactNode;
+    children?: ReactNode;
+    windowControls?: ReactNode;
+    presentation?: 'internal' | 'external';
+}
+
+interface ButtonOptions {
+    disabled?: boolean;
+    label?: string;
+}
+
+export function WindowTitleBar({title, target, titleContent, children, windowControls, presentation = 'internal'}: WindowTitleBarProps): React.ReactElement {
     const actions = <>{children}{presentation === 'internal' && windowControls}</>;
     return (
         <header aria-label={title} className="tw-window-titlebar">
@@ -21,7 +35,15 @@ const icons = {
     dock: <path d="m4 4 8 8m0-8-8 8"/>
 };
 
-function WindowButton({icon, label, onClick, disabled, showLabel = false}) {
+interface WindowButtonProps {
+    icon: keyof typeof icons;
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+    showLabel?: boolean;
+}
+
+function WindowButton({icon, label, onClick, disabled, showLabel = false}: WindowButtonProps) {
     return (
         <button aria-label={label} className="tw-window-titlebar__button" disabled={disabled}
             onClick={onClick} title={label} type="button">
@@ -34,21 +56,27 @@ function WindowButton({icon, label, onClick, disabled, showLabel = false}) {
     );
 }
 
-export function OpenWindowButton({onOpen, disabled = false, label = 'Open in another window'}) {
+export function OpenWindowButton({onOpen, disabled = false, label = 'Open in another window'}: ButtonOptions & {onOpen: () => void}): React.ReactElement {
     return <WindowButton icon="open" label={label} onClick={onOpen} disabled={disabled} showLabel />;
 }
 
-export function MinimizeWindowButton({onMinimize, disabled = false, label = 'Minimize window'}) {
+export function MinimizeWindowButton({onMinimize, disabled = false, label = 'Minimize window'}: ButtonOptions & {onMinimize: () => void}): React.ReactElement {
     return <WindowButton icon="minimize" label={label} onClick={onMinimize} disabled={disabled} />;
 }
 
 export function MaximizeWindowButton({maximized = false, onChange, disabled = false,
-    maximizeLabel = 'Maximize window', restoreLabel = 'Restore window'}) {
+    maximizeLabel = 'Maximize window', restoreLabel = 'Restore window'}: {
+    maximized?: boolean;
+    onChange: (maximized: boolean) => void;
+    disabled?: boolean;
+    maximizeLabel?: string;
+    restoreLabel?: string;
+}): React.ReactElement {
     return <WindowButton icon={maximized ? 'restore' : 'maximize'}
         label={maximized ? restoreLabel : maximizeLabel}
         onClick={() => onChange(!maximized)} disabled={disabled} />;
 }
 
-export function DockWindowButton({onDock, disabled = false, label = 'Close and dock'}) {
+export function DockWindowButton({onDock, disabled = false, label = 'Close and dock'}: ButtonOptions & {onDock: () => void}): React.ReactElement {
     return <WindowButton icon="dock" label={label} onClick={onDock} disabled={disabled} />;
 }

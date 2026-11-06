@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 const origin = 'http://layout.test';
 const files = new Map([
     ['/example/sprite-properties.html', new URL('../example/sprite-properties.html', import.meta.url)],
-    ['/example/sprite-properties.js', new URL('../example/sprite-properties.js', import.meta.url)],
+    ['/example/.build/sprite-properties.js', new URL('../example/.build/sprite-properties.js', import.meta.url)],
     ['/dist/sprite-properties.js', new URL('../dist/sprite-properties.js', import.meta.url)],
     ['/src/sprite-properties.css', new URL('../src/sprite-properties.css', import.meta.url)],
     ...['react', 'react-dom'].map(name => [

@@ -21,7 +21,7 @@
     },
     "./sprite-properties.css": "./src/sprite-properties.css",
     "./windows": {
-      "types": "./src/windows/index.d.ts",
+      "types": "./dist/windows/index.d.ts",
       "default": "./dist/windows/index.js"
     },
     "./windows.css": "./src/windows/styles.css",
@@ -40,10 +40,11 @@
     "src",
     "tsconfig.json",
     "README.md",
+    "README.ja.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && tsc -p example/tsconfig.json",
     "prepare": "npm run build",
     "test": "npm run build && node --test test/*.test.ts",
     "test:browser": "npm run build && node --test test/*.browser.ts"

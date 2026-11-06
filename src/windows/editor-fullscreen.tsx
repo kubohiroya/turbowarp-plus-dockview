@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 
-export function EditorFullscreenButton({locale = 'en', className}) {
+export function EditorFullscreenButton({locale = 'en', className}: {locale?: string; className?: string}): React.ReactElement | null {
     const root = document.documentElement;
     const [active, setActive] = useState(() => document.fullscreenElement === root);
     const [pending, setPending] = useState(false);

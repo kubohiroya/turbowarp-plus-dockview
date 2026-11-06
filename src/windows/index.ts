@@ -4,3 +4,6 @@ export {DockablePanel} from './dockable-panel.js';
 export {EditorFullscreenButton} from './editor-fullscreen.js';
 
 export {WindowLayoutMenu} from './layout-menu.js';
+
+export type {WindowTitleBarProps} from './title-bar.js';
+export type {InternalWindowRequest} from './window-desktop.js';

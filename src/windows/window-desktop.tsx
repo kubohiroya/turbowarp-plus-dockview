@@ -1,13 +1,86 @@
-import React, {useCallback, useContext, useLayoutEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode} from 'react';
 import {
     DockWindowButton, MaximizeWindowButton, MinimizeWindowButton, OpenWindowButton, WindowTitleBar
 } from './title-bar.js';
 
 import {WindowLayoutMenu} from './layout-menu.js';
 
-const DesktopContext = React.createContext(null);
+export interface InternalWindowRequest {
+    id: string;
+    title: string;
+    openExternal?: () => void;
+    onDuplicate?: () => void;
+    rememberPlacement?: boolean;
+    layer?: 'utility';
+    closeLabel?: string;
+    onActivate?: () => void;
+    onMinimize?: () => void;
+}
 
-const labelsFor = locale => /^ja(?:-|$)/i.test(locale) ? {
+interface InternalWindowMount {
+    mount: HTMLElement;
+    presentation: 'internal';
+}
+
+interface InternalWindowConnection {
+    ready: Promise<InternalWindowMount>;
+    disconnected: AbortSignal;
+    close(): void;
+    activate(): void;
+    setTitle(title: string): void;
+}
+
+interface WindowHost {
+    open(request: InternalWindowRequest): InternalWindowConnection | null;
+}
+
+interface WindowSize {
+    width: number;
+    height: number;
+}
+
+interface WindowRect extends WindowSize {
+    x: number;
+    y: number;
+}
+
+interface WindowEntry extends InternalWindowRequest {
+    frame?: HTMLElement | null;
+    mount(node: HTMLDivElement | null): void;
+    disconnect(): void;
+    close(): void;
+}
+
+type RestoredMode = 'normal' | 'maximized';
+type WindowMode = RestoredMode | 'minimized';
+
+interface WindowPlacement {
+    rect: WindowRect;
+    mode: RestoredMode;
+}
+
+interface WindowRecord {
+    entry: WindowEntry;
+    rect: WindowRect;
+    mode: WindowMode;
+    restoreMode: RestoredMode;
+    order: number;
+}
+
+type WindowPatch = Partial<Pick<WindowRecord, 'rect' | 'mode' | 'restoreMode'>>;
+
+interface DesktopState {
+    host: WindowHost;
+    records: WindowRecord[];
+    select(record: WindowRecord): void;
+    recover(): void;
+    list: React.RefObject<HTMLButtonElement>;
+    labels: ReturnType<typeof labelsFor>;
+}
+
+const DesktopContext = React.createContext<DesktopState | null>(null);
+
+const labelsFor = (locale: string) => /^ja(?:-|$)/i.test(locale) ? {
     list: 'ウィンドウ一覧', open: '別ウィンドウへ移す', minimize: '最小化', maximize: '最大化',
     restore: '元のサイズに戻す', dock: '閉じる（ドックに戻す）', move: 'ウィンドウを移動',
     resize: 'ウィンドウのサイズを変更', recover: '画面内に戻す'
@@ -17,7 +90,7 @@ const labelsFor = locale => /^ja(?:-|$)/i.test(locale) ? {
     resize: 'Resize window', recover: 'Bring windows into view'
 };
 
-function fit(rect, area) {
+function fit(rect: WindowRect, area: WindowSize) {
     const width = Math.min(area.width, Math.max(240, rect.width));
     const height = Math.min(area.height, Math.max(152, rect.height));
     return {
@@ -27,7 +100,7 @@ function fit(rect, area) {
     };
 }
 
-function changeBy(rect, area, dx, dy, resize) {
+function changeBy(rect: WindowRect, area: WindowSize, dx: number, dy: number, resize: boolean) {
     const next = resize ? {...rect,
         width: Math.min(area.width - rect.x, rect.width + dx),
         height: Math.min(area.height - rect.y, rect.height + dy)
@@ -35,32 +108,42 @@ function changeBy(rect, area, dx, dy, resize) {
     return fit(next, area);
 }
 
-const vectors = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]};
+const vectors: Partial<Record<string, [number, number]>> = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]};
 
-function DesktopWindow({record, area, labels, locale, layoutMenu, raise, update}) {
+interface DesktopWindowProps {
+    record: WindowRecord;
+    area: WindowSize;
+    labels: ReturnType<typeof labelsFor>;
+    locale: string;
+    layoutMenu: boolean;
+    raise(entry: WindowEntry): void;
+    update(entry: WindowEntry, patch: WindowPatch): void;
+}
+
+function DesktopWindow({record, area, labels, locale, layoutMenu, raise, update}: DesktopWindowProps) {
     const {entry, mode, rect} = record;
-    const drag = useRef(null);
+    const drag = useRef<{id: number; x: number; y: number; rect: WindowRect; resize: boolean} | null>(null);
     const normal = mode === 'normal';
     const geometry = mode === 'maximized' ? {x: 0, y: 0, ...area} : fit(rect, area);
     const position = {left: geometry.x, top: geometry.y, width: geometry.width, height: geometry.height,
         zIndex: record.order};
 
-    function start(event, resize) {
-        if (!normal || event.button !== 0 || (!resize && event.target.closest('button, input, select, a'))) return;
+    function start(event: React.PointerEvent<HTMLDivElement>, resize: boolean) {
+        if (!normal || event.button !== 0 || (!resize && (event.target as Element).closest('button, input, select, a'))) return;
         drag.current = {id: event.pointerId, x: event.clientX, y: event.clientY, rect: geometry, resize};
         event.currentTarget.setPointerCapture(event.pointerId);
         event.preventDefault();
         event.currentTarget.focus();
     }
 
-    function move(event) {
+    function move(event: React.PointerEvent<HTMLDivElement>) {
         const gesture = drag.current;
         if (gesture?.id !== event.pointerId) return;
         update(entry, {rect: changeBy(gesture.rect, area,
             event.clientX - gesture.x, event.clientY - gesture.y, gesture.resize)});
     }
 
-    function keys(event, resize) {
+    function keys(event: React.KeyboardEvent<HTMLDivElement>, resize: boolean) {
         const direction = vectors[event.key];
         if (!normal || event.target !== event.currentTarget || !direction) return;
         event.preventDefault();
@@ -68,7 +151,7 @@ function DesktopWindow({record, area, labels, locale, layoutMenu, raise, update}
         update(entry, {rect: changeBy(geometry, area, direction[0] * step, direction[1] * step, resize)});
     }
 
-    function gestureProps(resize) {
+    function gestureProps(resize: boolean): React.HTMLAttributes<HTMLDivElement> {
         return {
             onPointerDown: event => start(event, resize),
             onPointerMove: move,
@@ -78,7 +161,7 @@ function DesktopWindow({record, area, labels, locale, layoutMenu, raise, update}
     }
 
     function minimize() {
-        update(entry, {mode: 'minimized', restoreMode: mode});
+        update(entry, {mode: 'minimized', restoreMode: mode === 'minimized' ? record.restoreMode : mode});
         entry.onMinimize?.();
     }
 
@@ -109,25 +192,29 @@ function DesktopWindow({record, area, labels, locale, layoutMenu, raise, update}
     );
 }
 
-const nextOrder = records => Math.max(0, ...records.map(record => record.order)) + 1;
+const nextOrder = (records: WindowRecord[]) => Math.max(0, ...records.map(record => record.order)) + 1;
 
-export function WindowDesktop({locale = 'en', layoutMenu = false, children}) {
-    const [records, setRecords] = useState([]);
+export function WindowDesktop({locale = 'en', layoutMenu = false, children}: {
+    locale?: string;
+    layoutMenu?: boolean;
+    children?: ReactNode;
+}): React.ReactElement {
+    const [records, setRecords] = useState<WindowRecord[]>([]);
     const [area, setArea] = useState({width: 0, height: 0});
     const committed = useRef(records);
-    const placements = useRef(new Map());
-    const element = useRef(null);
-    const entries = useRef(new Map());
+    const placements = useRef(new Map<string, WindowPlacement>());
+    const element = useRef<HTMLDivElement>(null);
+    const entries = useRef(new Map<string, WindowEntry>());
     const live = useRef(false);
-    const list = useRef(null);
+    const list = useRef<HTMLButtonElement>(null);
     const labels = labelsFor(locale);
 
     useLayoutEffect(() => {
         live.current = true;
-        const node = element.current;
+        const node = element.current!;
         const measure = () => setArea({width: node.clientWidth, height: node.clientHeight});
         measure();
-        const observer = new node.ownerDocument.defaultView.ResizeObserver(measure);
+        const observer = new node.ownerDocument.defaultView!.ResizeObserver(measure);
         observer.observe(node);
         return () => {
             live.current = false;
@@ -138,19 +225,22 @@ export function WindowDesktop({locale = 'en', layoutMenu = false, children}) {
 
     useLayoutEffect(() => { committed.current = records; }, [records]);
 
-    const host = useMemo(() => ({
+    const host = useMemo<WindowHost>(() => ({
         open({id, title, openExternal, rememberPlacement, onDuplicate, onActivate, onMinimize, closeLabel, layer}) {
             if (!live.current || entries.current.has(id)) return null;
             const controller = new AbortController();
-            let resolve;
-            let reject;
-            const ready = new Promise((success, failure) => {resolve = success; reject = failure;});
-            const entry = {
+            let resolve!: (value: InternalWindowMount) => void;
+            let reject!: (reason: Error) => void;
+            const ready = new Promise<InternalWindowMount>((success, failure) => {
+                resolve = success;
+                reject = failure;
+            });
+            const entry: WindowEntry = {
                 id, title, openExternal, onDuplicate, onActivate, onMinimize, closeLabel, layer,
                 mount(node) {
                     if (!node || controller.signal.aborted) return;
                     resolve({mount: node, presentation: 'internal'});
-                    node.ownerDocument.defaultView.requestAnimationFrame(() => entry.frame?.focus());
+                    node.ownerDocument.defaultView!.requestAnimationFrame(() => entry.frame?.focus());
                 },
                 disconnect() {controller.abort();},
                 close() {
@@ -173,7 +263,7 @@ export function WindowDesktop({locale = 'en', layoutMenu = false, children}) {
             const placement = rememberPlacement && placements.current.get(id);
             const rect = placement ? placement.rect : {x: 56 + offset, y: 64 + offset, width: 540, height: 280};
             setRecords(items => [...items, {entry, mode: placement ? placement.mode : 'normal',
-                order: nextOrder(items), rect}]);
+                restoreMode: 'normal', order: nextOrder(items), rect}]);
             return {
                 ready, disconnected: controller.signal, close: entry.close,
                 activate() {
@@ -181,7 +271,7 @@ export function WindowDesktop({locale = 'en', layoutMenu = false, children}) {
                     setRecords(items => items.map(record => record.entry === entry && record.mode === 'minimized' ?
                         {...record, mode: record.restoreMode} : record));
                     raise(entry);
-                    element.current.ownerDocument.defaultView.requestAnimationFrame(() => entry.frame?.focus());
+                    element.current?.ownerDocument.defaultView?.requestAnimationFrame(() => entry.frame?.focus());
                 },
                 setTitle(next) {
                     if (controller.signal.aborted || entry.title === next) return;
@@ -192,7 +282,7 @@ export function WindowDesktop({locale = 'en', layoutMenu = false, children}) {
         }
     }), []);
 
-    const raise = useCallback(entry => {
+    const raise = useCallback((entry: WindowEntry) => {
         setRecords(items => {
             const record = items.find(item => item.entry === entry);
             const order = nextOrder(items);
@@ -201,14 +291,14 @@ export function WindowDesktop({locale = 'en', layoutMenu = false, children}) {
         });
         entry.onActivate?.();
     }, []);
-    function update(entry, patch) {
+    function update(entry: WindowEntry, patch: WindowPatch) {
         setRecords(items => items.map(item => item.entry === entry ? {...item, ...patch} : item));
         if (patch.mode === 'minimized') list.current?.focus();
     }
-    function select(record) {
+    function select(record: WindowRecord) {
         if (record.mode === 'minimized') update(record.entry, {mode: record.restoreMode});
         raise(record.entry);
-        element.current.ownerDocument.defaultView.requestAnimationFrame(() => record.entry.frame?.focus());
+        element.current?.ownerDocument.defaultView?.requestAnimationFrame(() => record.entry.frame?.focus());
     }
 
     function recover() {
@@ -233,11 +323,11 @@ export function WindowDesktop({locale = 'en', layoutMenu = false, children}) {
     );
 }
 
-export function useWindowHost() {
+export function useWindowHost(): WindowHost | undefined {
     return useContext(DesktopContext)?.host;
 }
 
-export function WindowList() {
+export function WindowList(): React.ReactElement | null {
     const desktop = useContext(DesktopContext);
     const [open, setOpen] = useState(false);
     if (!desktop?.records.length) return null;

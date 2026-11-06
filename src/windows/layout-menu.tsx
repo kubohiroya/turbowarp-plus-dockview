@@ -8,12 +8,24 @@ const labels = {
         'Open another view of this editor', 'Maximize this window', 'Minimize this window', 'Restore normal window']
 };
 
+interface WindowLayoutMenuProps {
+    locale?: string;
+    presentation: 'internal' | 'external';
+    mode?: 'normal' | 'minimized' | 'maximized';
+    onOpenExternal?: () => void;
+    onDock?: () => void;
+    onDuplicate?: () => void;
+    onMaximize?: () => void;
+    onMinimize?: () => void;
+    onRestore?: () => void;
+}
+
 export function WindowLayoutMenu({locale = 'en', presentation, mode = 'normal',
-    onOpenExternal, onDock, onDuplicate, onMaximize, onMinimize, onRestore}) {
+    onOpenExternal, onDock, onDuplicate, onMaximize, onMinimize, onRestore}: WindowLayoutMenuProps): React.ReactElement {
     const [open, setOpen] = useState(false);
-    const trigger = useRef(null);
+    const trigger = useRef<HTMLButtonElement>(null);
     const [title, ...actions] = /^ja(?:-|$)/i.test(locale) ? labels.ja : labels.en;
-    const items = [
+    const items: [action: (() => void) | undefined, current: boolean][] = [
         [onOpenExternal, presentation === 'external'], [onDock, false], [onDuplicate, false],
         [onMaximize, mode === 'maximized'], [onMinimize, mode === 'minimized'], [onRestore, mode === 'normal']
     ];
@@ -39,7 +51,7 @@ export function WindowLayoutMenu({locale = 'en', presentation, mode = 'normal',
         {open && <ul aria-label={title}>
             {items.map(([action, current], index) => <li key={actions[index]}>
                 <button type="button" disabled={!action || current} aria-current={current || undefined}
-                    onClick={() => {close(); action();}}>{actions[index]}</button>
+                    onClick={() => {close(); action?.();}}>{actions[index]}</button>
             </li>)}
         </ul>}
     </div>;
