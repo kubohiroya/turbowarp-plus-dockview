@@ -3,6 +3,7 @@ interface SpriteLayoutCommands {
     splitBelow(): void;
     close(): void;
     canClose(): boolean;
+    canSplit?(): boolean;
 }
 
 const labels = {
@@ -72,6 +73,7 @@ export function createSpriteLayoutMenu(document: Document, locale: string, comma
     function open(last = false) {
         if (openedIn) return;
         openedIn = trigger.ownerDocument;
+        buttons[0].disabled = buttons[1].disabled = commands.canSplit?.() === false;
         buttons[2].disabled = !commands.canClose();
         topLayer = typeof popup.showPopover === 'function';
         if (topLayer) {

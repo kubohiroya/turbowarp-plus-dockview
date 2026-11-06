@@ -649,6 +649,10 @@ details.layout-menu button {
     height: fit-content;
 }
 
+.standard-body:has(.sprite-tabs[data-multi-view]) .stage-drawer {
+    z-index: var(--plus-docked-utility-layer);
+}
+
 .standard-body:has(.sprite-tabs[data-multi-view]):has(.retracted-targets) {
     padding-left: 0.625rem;
 }
@@ -753,4 +757,20 @@ details.layout-menu button {
     position: relative;
     min-height: 0;
     min-width: 0;
+}
+
+:global(.tw-plus-dockview-stage-slot),
+:global(.tw-plus-dockview-stage-slot) > :global(.tw-plus-dockview-stage-surface) {
+    inline-size: 100%;
+    block-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+}
+
+:global(.tw-plus-dockview-stage-slot) > :global(.tw-plus-dockview-stage-surface) > .basic-panel {
+    block-size: 100%;
+}
+
+.floating-stage:has([data-stage-in-workspace]:empty) {
+    pointer-events: none;
 }

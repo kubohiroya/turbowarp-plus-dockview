@@ -151,29 +151,49 @@ export function createStandardLayout(React, {styles, targetStyles, context, Layo
             Container ? element(Container, {locale: props.locale}, layout) : layout);
     }
 
-    function EdgeDrawer({edge, label, pinned = false, onOpenChange, children}) {
+    function EdgeDrawer({edge, label, pinned = false, onOpenChange, portalContent = false, children}) {
         const [hovered, setHovered] = useState(false);
         const [engaged, setEngaged] = useState(false);
+        const drawer = useRef(null);
         const trigger = useRef(null);
         const panel = useRef(null);
         const open = pinned || hovered || engaged;
 
         useLayoutEffect(() => {onOpenChange?.(open);}, [open, onOpenChange]);
 
+        const enter = (event: PointerEvent) => {
+            if (event.pointerType === 'mouse') setHovered(true);
+        };
+        const leave = () => setHovered(false);
+        const focus = (event: FocusEvent) => {
+            if (panel.current.contains(event.target as Node)) setEngaged(true);
+        };
+        const blur = (event: FocusEvent) => {
+            if (!drawer.current.contains(event.relatedTarget as Node)) setEngaged(false);
+        };
+
+        useLayoutEffect(() => {
+            if (!portalContent) return;
+            const node = drawer.current as HTMLElement;
+            // Use the DOM ancestry for a surface rendered through a portal.
+            node.addEventListener('pointerenter', enter);
+            node.addEventListener('pointerleave', leave);
+            node.addEventListener('focusin', focus);
+            node.addEventListener('focusout', blur);
+            return () => {
+                node.removeEventListener('pointerenter', enter);
+                node.removeEventListener('pointerleave', leave);
+                node.removeEventListener('focusin', focus);
+                node.removeEventListener('focusout', blur);
+            };
+        }, [portalContent]);
+
         return element('div', {
             className: styles.edgeDrawer,
+            ref: drawer,
             'data-edge': edge,
             'data-pinned': pinned || undefined,
-            onPointerEnter: event => {
-                if (event.pointerType === 'mouse') setHovered(true);
-            },
-            onPointerLeave: () => setHovered(false),
-            onFocus: event => {
-                if (panel.current.contains(event.target)) setEngaged(true);
-            },
-            onBlur: event => {
-                if (!event.currentTarget.contains(event.relatedTarget)) setEngaged(false);
-            },
+            ...(!portalContent && {onPointerEnter: enter, onPointerLeave: leave, onFocus: focus, onBlur: blur}),
             onKeyDown: event => {
                 if (event.key !== 'Escape' || pinned || !open || event.defaultPrevented) return;
                 setHovered(false);
