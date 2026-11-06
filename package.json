@@ -1,0 +1,71 @@
+{
+  "name": "@kubohiroya/turbowarp-plus-editor-layout",
+  "version": "0.1.0",
+  "description": "Resizable panes and layout for TurboWarp Plus Editor",
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./standard-layout": {
+      "types": "./dist/standard-layout.d.ts",
+      "default": "./dist/standard-layout.js"
+    },
+    "./editor.css": "./src/editor.css",
+    "./targets.css": "./src/targets.css",
+    "./sprite-properties": {
+      "types": "./dist/sprite-properties.d.ts",
+      "default": "./dist/sprite-properties.js"
+    },
+    "./sprite-properties.css": "./src/sprite-properties.css",
+    "./windows": {
+      "types": "./src/windows/index.d.ts",
+      "default": "./dist/windows/index.js"
+    },
+    "./windows.css": "./src/windows/styles.css",
+    "./sprite-tabs": {
+      "types": "./dist/sprite-tabs.d.ts",
+      "default": "./dist/sprite-tabs.js"
+    },
+    "./dockview-styles": "./dist/dockview-styles.js",
+    "./extension-file-menu": {
+      "types": "./dist/extension-file-menu.d.ts",
+      "default": "./dist/extension-file-menu.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "tsconfig.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build",
+    "test": "npm run build && node --test test/*.test.ts",
+    "test:browser": "npm run build && node --test test/*.browser.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "typescript": "^6.0.3",
+    "jsdom": "26.1.0",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kubohiroya/turbowarp-plus-editor-layout.git"
+  },
+  "dependencies": {
+    "dockview": "8.8.3"
+  },
+  "peerDependencies": {
+    "react": ">=16.14",
+    "react-dom": ">=16.14"
+  }
+}
