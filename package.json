@@ -1,6 +1,6 @@
 {
   "name": "@kubohiroya/turbowarp-plus-editor-layout",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Resizable panes and layout for TurboWarp Plus Editor",
   "type": "module",
   "license": "GPL-3.0-or-later",
@@ -29,6 +29,17 @@
       "types": "./dist/sprite-tabs.d.ts",
       "default": "./dist/sprite-tabs.js"
     },
+    "./sprite-asset-pane": {
+      "types": "./dist/sprite-asset-pane.d.ts",
+      "default": "./dist/sprite-asset-pane.js"
+    },
+    "./sprite-asset-pane.css": "./src/sprite-asset-pane.css",
+    "./sprite-editor-toolbar": {
+      "types": "./dist/sprite-editor-toolbar.d.ts",
+      "default": "./dist/sprite-editor-toolbar.js"
+    },
+    "./sprite-editor-toolbar.css": "./src/sprite-editor-toolbar.css",
+    "./sprite-layout-menu.css": "./src/sprite-layout-menu.css",
     "./dockview-styles": "./dist/dockview-styles.js",
     "./extension-file-menu": {
       "types": "./dist/extension-file-menu.d.ts",

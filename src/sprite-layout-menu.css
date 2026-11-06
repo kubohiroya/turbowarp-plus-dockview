@@ -1,0 +1,54 @@
+.tw-plus-sprite-layout-menu {
+    align-self: center;
+    padding-inline: 4px;
+}
+
+.tw-plus-sprite-layout-menu-trigger {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 4px;
+    color: var(--text-primary, #263247);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.tw-plus-sprite-layout-menu-trigger svg { width: 16px; height: 16px; }
+.tw-plus-sprite-layout-menu-trigger:hover { background: var(--ui-black-transparent, #e2e7f0); }
+
+.tw-plus-sprite-layout-menu-popup {
+    position: fixed;
+    z-index: 1000;
+    inset: auto;
+    box-sizing: border-box;
+    max-width: calc(100vw - 8px);
+    margin: 0;
+    padding: 4px;
+    color: var(--text-primary, #263247);
+    background: var(--popover-background, var(--ui-white, #fff));
+    border: 1px solid var(--ui-black-transparent, #c6cfda);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px #0003;
+    font: 13px system-ui, sans-serif;
+}
+
+.tw-plus-sprite-layout-menu-popup button {
+    display: block;
+    width: 100%;
+    padding: 6px 8px;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    border-radius: 4px;
+    text-align: start;
+    font: inherit;
+    cursor: pointer;
+}
+
+.tw-plus-sprite-layout-menu-popup button:disabled { opacity: 0.55; cursor: default; }
+.tw-plus-sprite-layout-menu-popup button:enabled:is(:hover, :focus-visible) {
+    background: var(--looks-light-transparent, #e6dff3);
+}

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
-import test from 'node:test';
+import test, {type TestContext} from 'node:test';
 import {JSDOM} from 'jsdom';
-import {mountSpriteTabs} from '../src/sprite-tabs.ts';
+import {mountSpriteTabs} from '../dist/sprite-tabs.js';
 
-test('sprite tabs reuse the native editor, preserve its selected section, and follow the project', t => {
+function setupDom(t: TestContext) {
     const dom = new JSDOM('<main></main>', {pretendToBeVisual: true});
     const globals = {
         window: dom.window,
@@ -21,6 +21,11 @@ test('sprite tabs reuse the native editor, preserve its selected section, and fo
         dom.window.close();
         for (const key of Object.keys(globals)) Reflect.deleteProperty(globalThis, key);
     });
+    return dom.window.document;
+}
+
+test('sprite tabs reuse the native editor, preserve its selected section, and follow the project', t => {
+    const document = setupDom(t);
     const sprite = (id: string, name: string) => ({
         id, name, isOriginal: true, isStage: false, getName() { return this.name; }
     });
@@ -34,8 +39,8 @@ test('sprite tabs reuse the native editor, preserve its selected section, and fo
             this.emit('targetsUpdate');
         }
     });
-    const root = dom.window.document.querySelector('main');
-    const content = dom.window.document.createElement('div');
+    const root = document.querySelector('main');
+    const content = document.createElement('div');
     let section = 0;
     let selected = '';
     const controller = mountSpriteTabs(root, content, {vm, getSection: () => section,
@@ -51,6 +56,7 @@ test('sprite tabs reuse the native editor, preserve its selected section, and fo
         controller.select(second.id);
         assert.equal(vm.editingTarget, second);
         assert.equal(selected, second.id);
+        assert.equal(section, 1);
         assert.notEqual(content.parentElement, firstSlot);
         section = 2;
         vm.setEditingTarget(first.id);
@@ -82,6 +88,98 @@ test('sprite tabs reuse the native editor, preserve its selected section, and fo
         assert.equal(root.querySelectorAll('.dv-tab').length, 0);
         controller.select(replacement.id);
         assert.ok(root.contains(content));
+    } finally {
+        controller.dispose();
+    }
+    assert.equal(vm.listenerCount('targetsUpdate'), 0);
+});
+
+test('split views of one sprite preserve their own editor state and release it when closed', t => {
+    const document = setupDom(t);
+    const icon = {encodeDataURI: () => '/sprite.svg'};
+    const sprite = {id: 'sprite', isOriginal: true, isStage: false, getName: () => 'Sprite',
+        getCurrentCostume: () => ({asset: icon})};
+    const vm = Object.assign(new EventEmitter(), {
+        runtime: {targets: [sprite]},
+        editingTarget: sprite,
+        setEditingTarget() { throw new Error('Splitting a sprite must not change the VM target'); }
+    });
+    const root = document.querySelector('main');
+    const content = document.createElement('div');
+    let section = 0;
+    let position = 'origin';
+    let inactiveActions = 0;
+    let assets: Parameters<Parameters<typeof mountSpriteTabs>[2]['selectTarget']>[1];
+    const firstSound = {};
+    const secondSound = {};
+    const disposed: string[] = [];
+    const controller = mountSpriteTabs(root, content, {
+        vm, multiView: true, getSection: () => section, activateSection: next => { section = next; },
+        selectTarget(id, selections) { assets = selections; }, resize() {}, reopenLabel: 'Reopen',
+        viewAdapter: {
+            capture: () => position,
+            renderInactive(body, view, snapshot: string | undefined) {
+                const state = document.createElement('span');
+                state.dataset.viewId = view.id;
+                state.textContent = snapshot;
+                state.addEventListener('click', () => { inactiveActions++; });
+                body.append(state);
+                return () => state.remove();
+            },
+            restore(view, snapshot) {
+                position = snapshot ?? 'default';
+            },
+            dispose(view, snapshot) { disposed.push(snapshot); }
+        }
+    });
+    try {
+        const original = controller.currentView();
+        position = 'left-position';
+        assets.sounds.remember(sprite, secondSound);
+        section = 1;
+        const right = controller.split('right');
+        assert.ok(right && right !== original.id);
+        assert.equal(controller.currentView().id, right);
+        assert.equal(controller.currentView().targetId, original.targetId);
+        assert.equal(controller.currentView().section, 1);
+        assert.equal(assets.sounds.restore(sprite, [secondSound, firstSound]), 0);
+        assets.sounds.remember(sprite, firstSound);
+        assert.equal(assets.sounds.restore({...sprite}, [firstSound]), undefined);
+        assert.equal(root.querySelectorAll('.dv-groupview').length, 2);
+        assert.equal(root.querySelectorAll('img[src="/sprite.svg"]').length, 2);
+        assert.equal(root.querySelector('[data-view-id="sprite"]').textContent, 'left-position');
+
+        controller.setViewSection(right, 2);
+        position = 'right-position';
+        root.querySelector('[data-view-id="sprite"]').dispatchEvent(
+            new document.defaultView.Event('click', {bubbles: true}));
+        assert.equal(controller.currentView().id, original.id);
+        assert.equal(inactiveActions, 0);
+        assert.equal(section, 1);
+        assert.equal(position, 'left-position');
+        assert.equal(assets.sounds.restore(sprite, [firstSound, secondSound]), 1);
+        assert.equal(assets.costumes.restore(sprite, [firstSound, secondSound]), undefined);
+
+        assert.equal(controller.activateView(right), true);
+        assert.equal(section, 2);
+        assert.equal(position, 'right-position');
+        assert.equal(assets.sounds.restore(sprite, [firstSound, secondSound]), 0);
+        controller.setViewSection(right, 0);
+        assert.equal(position, 'default');
+        position = 'code-position';
+        controller.setViewSection(right, 2);
+        assert.equal(position, 'right-position');
+        const below = controller.split('below');
+        assert.equal(root.querySelectorAll('.dv-groupview').length, 3);
+        assert.equal(controller.currentView().id, below);
+        assert.equal(controller.closeSplit(below), true);
+        assert.equal(controller.closeSplit(right), true);
+        assert.equal(controller.closeSplit(), false);
+        assert.equal(controller.currentView().id, original.id);
+        assert.equal(controller.views().length, 1);
+        assert.equal(section, 1);
+        assert.equal(position, 'left-position');
+        assert.ok(disposed.includes('right-position'));
     } finally {
         controller.dispose();
     }

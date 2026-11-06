@@ -1,0 +1,169 @@
+.tw-sprite-media,
+.tw-sprite-variables {
+    box-sizing: border-box;
+    block-size: 100%;
+    min-block-size: 0;
+    min-inline-size: 0;
+    color: var(--text-primary, #273146);
+    background: var(--ui-white, #fff);
+}
+
+.tw-sprite-media {
+    display: grid;
+    grid-template-columns: minmax(3.25rem, 24%) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+}
+
+.tw-sprite-media__list {
+    margin: 0;
+    padding: .35rem;
+    overflow: auto;
+    list-style: none;
+    border-inline-end: 1px solid var(--ui-black-transparent, #ccd5e2);
+    background: var(--ui-secondary, #edf3fc);
+}
+
+.tw-sprite-media__list li + li {
+    margin-block-start: .35rem;
+}
+
+.tw-sprite-media__item {
+    box-sizing: border-box;
+    display: grid;
+    inline-size: 100%;
+    justify-items: center;
+    gap: .25rem;
+    padding: .35rem;
+    border: 1px solid var(--ui-black-transparent, #ccd5e2);
+    border-radius: .375rem;
+    color: inherit;
+    background: var(--ui-white, #fff);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.tw-sprite-media__item[aria-disabled] {
+    cursor: default;
+}
+
+.tw-sprite-media__item[aria-current] {
+    border-color: var(--looks-secondary, #7759cf);
+    box-shadow: inset 0 0 0 1px var(--looks-secondary, #7759cf);
+}
+
+.tw-sprite-media__thumbnail {
+    inline-size: 100%;
+    block-size: 2rem;
+    object-fit: contain;
+}
+
+.tw-sprite-media__symbol {
+    display: grid;
+    place-items: center;
+    block-size: 2rem;
+    font-size: 1.35rem;
+    color: var(--looks-secondary, #7759cf);
+}
+
+.tw-sprite-media__name {
+    max-inline-size: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tw-sprite-media__detail {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    padding: .6rem;
+    overflow: auto;
+}
+
+.tw-sprite-media__detail > p,
+.tw-sprite-media__title {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.tw-sprite-media__title {
+    font-size: 1em;
+}
+
+.tw-sprite-media__surface {
+    display: grid;
+    flex: 1;
+    min-block-size: 3rem;
+    min-inline-size: 0;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid var(--ui-black-transparent, #ccd5e2);
+    border-radius: .375rem;
+    background: var(--ui-secondary, #edf3fc);
+}
+
+.tw-sprite-media__preview,
+.tw-sprite-media__waveform {
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
+    min-block-size: 0;
+    object-fit: contain;
+}
+
+.tw-sprite-media__axis,
+.tw-sprite-media__peaks {
+    fill: none;
+    stroke: var(--looks-secondary, #7759cf);
+    stroke-width: 1;
+}
+
+.tw-sprite-media__axis {
+    opacity: .4;
+}
+
+.tw-sprite-media__duration {
+    text-align: end;
+}
+
+.tw-sprite-variables {
+    padding: .6rem;
+    overflow: auto;
+}
+
+.tw-sprite-variables__table {
+    inline-size: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    text-align: start;
+}
+
+.tw-sprite-variables__table th,
+.tw-sprite-variables__table td {
+    padding: .35rem;
+    border-block-end: 1px solid var(--ui-black-transparent, #ccd5e2);
+    overflow-wrap: anywhere;
+}
+
+.tw-sprite-variables__scope {
+    display: block;
+    font-size: .8em;
+    font-weight: normal;
+}
+
+.tw-sprite-variables__input {
+    box-sizing: border-box;
+    inline-size: 100%;
+    padding: .35rem .5rem;
+    border: 1px solid var(--ui-black-transparent, #ccd5e2);
+    border-radius: .25rem;
+    color: inherit;
+    background: var(--input-background, #fff);
+    font: inherit;
+}
+
+.tw-sprite-media--detail {
+    inline-size: 100%;
+    grid-template-columns: minmax(0, 1fr);
+}

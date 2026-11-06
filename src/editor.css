@@ -603,11 +603,31 @@ details.layout-menu button {
     flex: 1 1 0;
     min-width: 0;
     min-height: 0;
-    --dv-tabs-and-actions-container-background-color: var(--ui-primary);
-    --dv-activegroup-visiblepanel-tab-background-color: var(--ui-white);
-    --dv-activegroup-visiblepanel-tab-color: var(--text-primary);
-    --dv-activegroup-hiddenpanel-tab-background-color: var(--ui-secondary);
-    --dv-activegroup-hiddenpanel-tab-color: var(--text-primary);
+}
+
+.sprite-tabs :global(.dockview-theme-light) {
+    color-scheme: var(--color-scheme, light);
+    --dv-group-view-background-color: var(--ui-primary, #fff);
+    --dv-tabs-and-actions-container-background-color: var(--ui-primary, #f3f3f3);
+    --dv-activegroup-visiblepanel-tab-background-color: var(--ui-white, #fff);
+    --dv-activegroup-visiblepanel-tab-color: var(--text-primary, #333);
+    --dv-activegroup-hiddenpanel-tab-background-color: var(--ui-secondary, #ececec);
+    --dv-activegroup-hiddenpanel-tab-color: var(--text-primary, #333);
+    --dv-inactivegroup-visiblepanel-tab-background-color: var(--ui-tertiary, #eee);
+    --dv-inactivegroup-visiblepanel-tab-color: var(--text-primary, #333);
+    --dv-inactivegroup-hiddenpanel-tab-background-color: var(--ui-secondary, #ececec);
+    --dv-inactivegroup-hiddenpanel-tab-color: var(--text-primary, #333);
+    --dv-sash-color: var(--ui-black-transparent, #0002);
+    --dv-active-sash-color: var(--looks-secondary, #855cd6);
+}
+
+.standard-body:has(.sprite-tabs[data-multi-view]) .floating-stage {
+    top: 5.5rem;
+    height: fit-content;
+}
+
+.standard-body:has(.sprite-tabs[data-multi-view]):has(.retracted-targets) {
+    padding-left: 0.625rem;
 }
 
 .sprite-tabs > div,
@@ -647,6 +667,55 @@ details.layout-menu button {
     width: 100%;
     height: 100%;
     min-height: 0;
+}
+
+.sprite-tabs :global(.tw-plus-sprite-tab-slot--split) {
+    display: flex;
+    flex-direction: column;
+}
+
+.sprite-tabs :global(.tw-plus-sprite-tab-body) {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+.sprite-tabs :global(.tw-plus-sprite-tab-asset-preview) {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.sprite-tabs :global(.tw-plus-sprite-tab-editor[hidden]),
+.sprite-tabs :global(.tw-plus-sprite-tab-asset-preview[hidden]) { display: none; }
+
+.sprite-tabs :global([data-layout-asset-detail]) {
+    min-inline-size: 0;
+    min-block-size: 0;
+    overflow: auto;
+}
+
+.sprite-tabs :global([data-layout-asset-panel]) {
+    box-sizing: border-box;
+    inline-size: 100%;
+    block-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex-basis: 0;
+    overflow: hidden;
+}
+
+.sprite-tabs :global([data-layout-asset-list]) {
+    flex: 0 0 auto;
+    max-inline-size: 45%;
+    min-block-size: 0;
+}
+
+.sprite-tabs :global(.tw-plus-sprite-tab-slot:focus-within) .open-window-action {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 /* The native tab panel shells remain mounted for the host's tab selection. */
