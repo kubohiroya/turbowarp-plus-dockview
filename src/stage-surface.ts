@@ -1,4 +1,6 @@
 import type {Context, ElementType} from 'react';
+import {createPortal} from 'react-dom';
+import type {useDockviewStage} from './dockview-stage.ts';
 import {createDockview, themeLight} from 'dockview';
 
 interface StageWindowConnection<Target> {
@@ -74,6 +76,8 @@ export function stageDockActionLabel(locale: string, {drawer, detached, external
     return japanese ? 'アンドック' : 'Undock stage';
 }
 
+type StagePlacement = Pick<NonNullable<ReturnType<typeof useDockviewStage>>, 'surface' | 'inlineRef' | 'docked'>;
+
 export function createStageSurface(React: typeof import('react'), {
     context, EdgeDrawer, Panel
 }: {
@@ -81,7 +85,7 @@ export function createStageSurface(React: typeof import('react'), {
     EdgeDrawer: ElementType;
     Panel: ElementType;
 }) {
-    return function StageSurface({externalHost, onDockActionChange, ...props}) {
+    return function StageSurface({externalHost, onDockActionChange, placement, ...props}: {placement?: StagePlacement; [key: string]: any}) {
         const {locale, stageDrawer, setStageDrawerOpen} = React.useContext(context);
         const japanese = isJapanese(locale);
         const title = japanese ? 'ステージ' : 'Stage';
@@ -95,10 +99,15 @@ export function createStageSurface(React: typeof import('react'), {
             externalOnly: stageDrawer,
             onDockActionChange: stageDrawer && !host ? undefined : onDockActionChange
         });
-        return stageDrawer ? React.createElement(EdgeDrawer, {
+        const inline = placement ? React.createElement('div', {
+            ref: placement.inlineRef,
+            'data-stage-in-workspace': placement.docked || undefined
+        }) : panel;
+        const dock = stageDrawer ? React.createElement(EdgeDrawer, {
             edge: 'right',
             label: japanese ? 'ステージを展開' : 'Reveal stage',
             onOpenChange: setStageDrawerOpen
-        }, panel) : panel;
+        }, inline) : inline;
+        return placement ? React.createElement(React.Fragment, null, dock, createPortal(panel, placement.surface)) : dock;
     };
 }
