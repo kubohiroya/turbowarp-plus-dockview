@@ -649,6 +649,10 @@ details.layout-menu button {
     height: fit-content;
 }
 
+.standard-body:has(.sprite-tabs[data-multi-view]) .stage-drawer {
+    z-index: var(--plus-docked-utility-layer);
+}
+
 .standard-body:has(.sprite-tabs[data-multi-view]):has(.retracted-targets) {
     padding-left: 0.625rem;
 }
