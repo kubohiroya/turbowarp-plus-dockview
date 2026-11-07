@@ -429,9 +429,13 @@ details.layout-menu button {
     background: transparent;
     color: inherit;
     font: inherit;
-    font-size: 0.875rem;
     text-align: start;
     cursor: pointer;
+}
+
+.sprite-properties-title,
+.sprite-properties-toggle {
+    font-size: 0.875rem;
 }
 
 .sprite-properties-content {

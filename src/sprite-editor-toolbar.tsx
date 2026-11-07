@@ -98,7 +98,7 @@ function SearchBox({viewId, section, japanese, search}: {
 export function SpriteEditorToolbar({viewId, locale, section, onSectionChange, isStage, activeGroup, search,
     availableSections = spriteEditorSections, propertiesInVariables = false, actions}: SpriteEditorToolbarProps) {
     const japanese = /^ja(?:-|$)/i.test(locale);
-    const labels = japanese ? {code: 'コード', costumes: isStage ? '背景' : 'コスチューム', sounds: '音', variables: propertiesInVariables ? 'プロパティ・変数' : '変数'} :
+    const labels = japanese ? {code: 'コード', costumes: isStage ? '背景' : 'コスチューム', sounds: '音', variables: propertiesInVariables ? '変数など' : '変数'} :
         {code: 'Code', costumes: isStage ? 'Backdrops' : 'Costumes', sounds: 'Sounds', variables: propertiesInVariables ? 'Properties & Variables' : 'Variables'};
     return <div className="tw-plus-sprite-toolbar" data-active-group={activeGroup}>
         <div className="tw-plus-sprite-toolbar-sections" role="tablist"
@@ -119,7 +119,9 @@ export function SpriteEditorToolbar({viewId, locale, section, onSectionChange, i
                 {labels[id]}
             </button>)}
         </div>
-        {search && <SearchBox {...{viewId, section, japanese, search}} />}
-        {actions}
+        {(search || actions) && <div className="tw-plus-sprite-toolbar-tools">
+            {actions}
+            {search && <SearchBox {...{viewId, section, japanese, search}} />}
+        </div>}
     </div>;
 }
