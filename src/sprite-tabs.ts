@@ -89,7 +89,7 @@ export interface SpriteAssetPreviewData {
 }
 type AssetSelections = Readonly<Record<AssetKind, SpriteAssetSelection>>;
 
-function createAssetSelections(target: Target, source?: {
+function createAssetSelections(target: Target, locale: string, source?: {
     selected: Map<AssetKind, object>;
     layouts: Map<AssetKind, SpriteAssetLayout>;
     scroll: Map<AssetKind, number>;
@@ -111,7 +111,7 @@ function createAssetSelections(target: Target, source?: {
         return {
             ...state,
             renderPanel: (render, previewSelector, panel) =>
-                React.createElement(NativeAssetPanel, {render, previewSelector, panel, state}),
+                React.createElement(NativeAssetPanel, {render, previewSelector, panel, kind, locale, state}),
             restore(current, assets) {
                 if (current !== target) return;
                 const index = assets.indexOf(selected.get(kind));
@@ -532,7 +532,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
         }
         const source = splitPosition && views.get(splitPosition.referencePanel);
         views.set(id, {id, target, section: section ?? remembered.get(target) ?? options.getSection(),
-            assets: createAssetSelections(target, source?.assets)});
+            assets: createAssetSelections(target, locale, source?.assets)});
         try {
             return dockview.addPanel({id, title: target.getName(), component: 'sprite', inactive: !splitPosition,
                 position: splitPosition, params: {icon: getIcon(target)}});
@@ -728,7 +728,7 @@ export function mountSpriteTabs<Snapshot>(root: HTMLElement, content: HTMLElemen
             if (reference.kind === 'sprite') {
                 const target = targets.find(item => item.isStage === reference.stage && targetName(item) === reference.name);
                 if (!target || id === stagePanelId || (reference.section === variableSection && !options.variables)) return finishRestore();
-                resolvedSprites.set(id, {id, target, section: reference.section, assets: createAssetSelections(target)});
+                resolvedSprites.set(id, {id, target, section: reference.section, assets: createAssetSelections(target, locale)});
                 panels[id] = {id, title: target.getName(), contentComponent: 'sprite', params: {icon: getIcon(target)}};
             } else if (reference.kind === 'stage') {
                 if (!stagePane || id !== stagePanelId) return finishRestore();
@@ -1116,6 +1116,15 @@ export function useSpriteTabs<Snapshot>({available, enabled, locale, ...props}:
     }) {
     const controller = React.useRef<SpriteTabsController<Snapshot>>(null);
     const [selection, setSelection] = React.useState<{id: string; assets?: AssetSelections}>({id: ''});
+    const defaultAssets = React.useMemo<AssetSelections>(() => {
+        const forKind = (kind: AssetKind): SpriteAssetSelection => ({
+            restore: () => undefined,
+            remember() {},
+            renderPanel: (render, previewSelector, panel) =>
+                React.createElement(NativeAssetPanel, {render, previewSelector, panel, kind, locale})
+        });
+        return {costumes: forKind('costumes'), sounds: forKind('sounds')};
+    }, [locale]);
     const [ready, setReady] = React.useState(false);
     const [slots] = React.useState(() => available ? Array.from({length: 3}, () => {
         const slot = document.createElement('div');
@@ -1132,7 +1141,7 @@ export function useSpriteTabs<Snapshot>({available, enabled, locale, ...props}:
     const select = (id: string) => controller.current?.select(id);
     return {
         controller,
-        assetSelections: enabled ? selection.assets : undefined,
+        assetSelections: (enabled ? selection.assets : undefined) ?? defaultAssets,
         context: enabled ? {
             selectedId: selection.id, openLabel: japanese ? '開く' : 'Open', select, open: select,
             rename: props.multiView && props.getProperties ? (id: string) => controller.current?.rename(id) : undefined

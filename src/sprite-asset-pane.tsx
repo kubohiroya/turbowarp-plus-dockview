@@ -1,6 +1,7 @@
 import React from 'react';
+import {observeTileNameTitles} from './native-tile-title.ts';
 import {SpritePropertiesPanel, type SpritePropertiesPanelProps} from './sprite-properties.tsx';
-import type {SpriteAssetPreviewItem} from './sprite-tabs.ts';
+import type {SpriteAssetKind, SpriteAssetPreviewItem} from './sprite-tabs.ts';
 
 interface NativeAssetPanelProps {
     children?: React.ReactNode;
@@ -39,24 +40,27 @@ interface PanelState {
 
 const noop = () => {};
 
-function NativeAssetPanelSurface({render, panel, state, previewSelector, scrollTop}: {
+function NativeAssetPanelSurface({render, panel, kind, state, previewSelector, scrollTop}: {
     render: NativeAssetPanelRenderer;
     panel: NativeAssetPanelProps;
+    kind?: SpriteAssetKind;
     state?: PanelState;
     previewSelector?: NativeAssetSelector;
     scrollTop?: number;
 }) {
     const list = React.useRef<HTMLElement | null>(null);
+    const stopObserving = React.useRef<() => void>();
     const setList = React.useCallback((node: HTMLElement | null) => {
+        stopObserving.current?.();
         list.current = node;
+        stopObserving.current = observeTileNameTitles(node);
     }, []);
     React.useLayoutEffect(() => {
         const position = state?.getScrollTop() ?? scrollTop;
         if (list.current && position !== undefined) list.current.scrollTop = position;
     }, [state, scrollTop]);
-
     return render(panel, {
-        panelAttributes: {'data-layout-asset-panel': ''},
+        panelAttributes: {'data-layout-asset-panel': kind ?? ''},
         detailAttributes: {'data-layout-asset-detail': ''},
         renderSelector(Component, props) {
             const selectorProps = {...props, listRef: setList, wrapperAttributes: {'data-layout-asset-list': ''}};
@@ -74,18 +78,21 @@ function NativeAssetPanelSurface({render, panel, state, previewSelector, scrollT
     });
 }
 
-export function NativeAssetPanel({render, previewSelector, panel, state}: {
+export function NativeAssetPanel({render, previewSelector, panel, kind, locale = 'en', state}: {
     render: NativeAssetPanelRenderer;
     previewSelector: NativeAssetSelector;
     panel: NativeAssetPanelProps;
-    state: PanelState;
+    kind?: SpriteAssetKind;
+    locale?: string;
+    state?: PanelState;
 }) {
     const {items, buttons, isRtl, listActions} = panel;
     React.useLayoutEffect(() => {
+        if (!state) return;
         const previousItems = new Map(items.map(item => [item.dragPayload, item]));
         const readOnlyButtons = buttons.map(({title, img}) => ({title, img, onClick: noop}));
         state.rememberLayout((previewItems, selectedItemIndex, detail, scrollTop) => <NativeAssetPanelSurface
-            render={render} previewSelector={previewSelector} scrollTop={scrollTop} panel={{
+            render={render} kind={kind} previewSelector={previewSelector} scrollTop={scrollTop} panel={{
                 isRtl, listActions, selectedItemIndex, buttons: readOnlyButtons,
                 onItemClick: noop, children: detail,
                 items: previewItems.map(item => {
@@ -93,8 +100,15 @@ export function NativeAssetPanel({render, previewSelector, panel, state}: {
                     return {name: item.name, url: item.imageUrl || previous?.url, details: previous?.details};
                 })
             }} />);
-    }, [state, render, previewSelector, items, buttons, isRtl, listActions]);
-    return <NativeAssetPanelSurface render={render} panel={panel} state={state} />;
+    }, [state, render, previewSelector, items, buttons, isRtl, listActions, kind]);
+    const activePanel = kind === 'sounds' ? {
+        ...panel,
+        children: <>
+            {items.length === 0 && <p className="tw-sprite-media__empty">{labelsFor(locale).emptySounds}</p>}
+            {panel.children}
+        </>
+    } : panel;
+    return <NativeAssetPanelSurface render={render} panel={activePanel} kind={kind} state={state} />;
 }
 
 export interface SpriteMediaAsset {
@@ -178,7 +192,7 @@ function MediaPane({kind, items, selectedId, onSelect, renderEditor, editable, l
     return <section className={detailOnly ? 'tw-sprite-media tw-sprite-media--detail' : 'tw-sprite-media'} aria-label={labels[kind]}>
         {!detailOnly && <ul className="tw-sprite-media__list" aria-label={labels[kind]}>
             {items.map(asset => <li key={asset.id}>
-                <button type="button" className="tw-sprite-media__item" aria-current={asset.id === selectedId || undefined}
+                <button type="button" className="tw-sprite-media__item" title={asset.name} aria-current={asset.id === selectedId || undefined}
                     aria-disabled={!editable || undefined} tabIndex={editable ? 0 : -1} onClick={() => {
                         if (editable) onSelect(asset.id);
                     }}>

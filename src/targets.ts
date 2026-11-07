@@ -1,3 +1,5 @@
+import {observeTileNameTitles} from './native-tile-title.ts';
+
 const tileHeight = 80;
 const minTileWidth = 72;
 const gap = 6;
@@ -27,6 +29,8 @@ export function createTargetList(React, styles) {
             observer.observe(viewport);
             return () => observer.disconnect();
         }, [compact]);
+
+        useLayoutEffect(() => observeTileNameTitles(grid.current), []);
 
         useLayoutEffect(() => {
             const name = query.trim().toLocaleLowerCase();
