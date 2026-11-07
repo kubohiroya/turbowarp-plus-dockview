@@ -1,3 +1,14 @@
+[data-layout-asset-panel="costumes"] [class*="sprite-selector-item_delete-button_"] {
+    display: none;
+}
+
+.tw-sprite-media__empty {
+    margin: auto;
+    padding: 1rem;
+    color: var(--text-primary, #273146);
+    text-align: center;
+}
+
 .tw-sprite-media,
 .tw-sprite-variables {
     box-sizing: border-box;
